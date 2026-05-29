@@ -9,7 +9,7 @@
 #include "enemigo.h"
 
 class Nivel1 : public QGraphicsView {
-    Q_OBJECT // ¡SÚPER IMPORTANTE! Esta macro permite usar funciones de Slots en Qt
+    Q_OBJECT //  Esta macro permite usar funciones de Slots en Qt
 public:
     Nivel1(QWidget *parent = nullptr);
     ~Nivel1();

@@ -5,18 +5,22 @@
 
 class Enemigo : public QGraphicsRectItem {
 public:
-    // El constructor recibe los parámetros iniciales de la física
-    Enemigo(double xCentro, double yPos, double amplitud, double velAngular);
+    // Definimos los tipos de movimientos disponibles
+    enum TipoMovimiento { HORIZONTAL_MAS, VERTICAL_MAS, CIRCULAR };
 
-    // Método que calcula la nueva posición usando la ecuación física
+    // Añadimos el tipo de movimiento al constructor
+    Enemigo(double xCentro, double yPos, double amplitud, double velAngular, TipoMovimiento tipoMov);
+
     void actualizarFisica(double dt);
 
 private:
-    double x_centro;       // Punto de equilibrio (x0)
-    double y_pos;          // Altura fija en la cancha
-    double amplitud;       // Amplitud del movimiento (A)
-    double omega;          // Velocidad angular (w)
-    double tiempo;         // Variable de tiempo acumulado (t)
+    double x_centro;
+    double y_pos;
+    double amplitud;       // Funciona como Amplitud en MAS y como Radio en Circular
+    double omega;
+    double tiempo;
+
+    TipoMovimiento tipo;   // Guarda qué movimiento hace este enemigo en específico
 };
 
 #endif // ENEMIGO_H

@@ -9,7 +9,7 @@ Nivel1::Nivel1(QWidget *parent) : QGraphicsView(parent) {
     setScene(escena);
 
     // Pintar cancha y líneas de referencia
-    escena->setBackgroundBrush(QBrush(QColor(34, 139, 34)));
+    escena->setBackgroundBrush(QBrush(QColor(222, 184, 135)));
     QPen lapizBlanco(Qt::white);
     lapizBlanco.setWidth(3);
     for (int i = 0; i <= 3000; i += 200) {
@@ -30,12 +30,12 @@ Nivel1::Nivel1(QWidget *parent) : QGraphicsView(parent) {
     // ==================== NUEVO DE LA FASE 2 ====================
 
     // 4. Creación dinámica de enemigos a diferentes alturas (Y)
-    // Parámetros: Enemigo(xCentro, yPos, amplitud, velocidadAngular)
-    listaEnemigos.push_back(new Enemigo(400, 2500, 200, 3.0)); // Enemigo abajo, rápido
-    listaEnemigos.push_back(new Enemigo(400, 2000, 300, 1.5)); // Amplitud más grande, lento
-    listaEnemigos.push_back(new Enemigo(300, 1500, 150, 4.5)); // Muy rápido
-    listaEnemigos.push_back(new Enemigo(400, 1000, 250, 2.0));
-    listaEnemigos.push_back(new Enemigo(400, 500,  350, 2.5)); // Cerca del arco rival
+    // Parámetros: Enemigo(xCentro, yPos, amplitud/radio, velocidadAngular, TIPO)
+    listaEnemigos.push_back(new Enemigo(400, 2500, 200, 3.0, Enemigo::HORIZONTAL_MAS));
+    listaEnemigos.push_back(new Enemigo(200, 2100, 100, 2.5, Enemigo::VERTICAL_MAS));   // Sube y baja de forma armónica
+    listaEnemigos.push_back(new Enemigo(400, 1600, 120, 2.0, Enemigo::CIRCULAR));       // Gira en círculos perfectos (¡Física 2!)
+    listaEnemigos.push_back(new Enemigo(500, 1100, 150, 3.5, Enemigo::HORIZONTAL_MAS));
+    listaEnemigos.push_back(new Enemigo(400, 600,  100, 1.8, Enemigo::CIRCULAR));       // Otro torbellino circular antes de la meta
 
     // Añadir todos los enemigos a la escena
     for (Enemigo* ene : listaEnemigos) {
@@ -62,7 +62,7 @@ void Nivel1::actualizarJuego() {
 Nivel1::~Nivel1() {
     delete gidsel;
 
-    // ¡REQUISITO EXIGIDO! Limpieza estricta de memoria dinámica para evitar leaks
+    // Limpieza estricta de memoria dinámica para evitar leaks
     for (Enemigo* ene : listaEnemigos) {
         delete ene;
     }
