@@ -6,33 +6,37 @@ Nivel1::Nivel1(QWidget *parent) : QGraphicsView(parent) {
     escena = new QGraphicsScene(this);
     escena->setSceneRect(0, 0, 800, 3000);
     setScene(escena);
-    escena->setBackgroundBrush(QBrush(QColor(245, 222, 179))); // Madera pino claro
+    escena->setBackgroundBrush(QBrush(QColor(245, 222, 179)));
 
-    // Dibujar líneas blancas horizontales
     QPen lapizBlanco(Qt::white);
     lapizBlanco.setWidth(3);
     for (int i = 0; i <= 3000; i += 200) {
         escena->addLine(0, i, 800, i, lapizBlanco);
     }
 
-    // VISUAL DE LA ZONA DE RECARGA: Pintamos el área de inicio (abajo) con un suave tinte gris
     escena->addRect(0, 2800, 800, 200, QPen(Qt::transparent), QBrush(QColor(0, 0, 0, 20)));
 
-    // Configurar Vista
     setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     setFixedSize(800, 600);
 
-    // Crear Jugador
     gidsel = new Jugador();
     gidsel->setPos(375, 2900);
     escena->addItem(gidsel);
     centerOn(gidsel);
 
-    // El balón inicia destruido/nulo ya que el jugador lo tiene guardado lógicamente
     balon = nullptr;
 
-    // --- Enemigos de Alta Dificultad (Fase 2) ---
+    // === NUEVO FASE 4: Instanciar la Jeringa en la mitad de la cancha ===
+    jeringa = new Jeringa(100, 1500);
+    escena->addItem(jeringa);
+
+    // Configurar Timer del Power-up (Un solo disparo / SingleShot)
+    timerPowerUp = new QTimer(this);
+    timerPowerUp->setSingleShot(true); // Se dispara una única vez al cumplir el tiempo
+    connect(timerPowerUp, SIGNAL(timeout()), this, SLOT(terminarPowerUp()));
+
+    // Enemigos de Alta Dificultad
     listaEnemigos.push_back(new Enemigo(400, 2500, 220, 3.0, Enemigo::HORIZONTAL_MAS));
     listaEnemigos.push_back(new Enemigo(400, 2500, 150, 3.0, Enemigo::VERTICAL_MAS));
     listaEnemigos.push_back(new Enemigo(150, 2100, 130, 1.2, Enemigo::TRAYECTORIA_L));
@@ -45,10 +49,8 @@ Nivel1::Nivel1(QWidget *parent) : QGraphicsView(parent) {
         escena->addItem(ene);
     }
 
-    // Configurar Game Loop
     relojJuego = new QTimer(this);
     connect(relojJuego, SIGNAL(timeout()), this, SLOT(actualizarJuego()));
-
     relojJuego->start(20);
 }
 
@@ -58,40 +60,57 @@ void Nivel1::actualizarJuego() {
     // 1. Actualizar física de enemigos
     for (Enemigo* ene : listaEnemigos) {
         ene->actualizarFisica(dt);
+
+        // !!! NUEVO FASE 4: COLISIÓN JUGADOR - ENEMIGO !!!
+        if (gidsel->collidesWithItem(ene)) {
+            gidsel->resetearPosicion(); // Lo regresa al inicio y pierde poderes
+            centerOn(gidsel);
+        }
     }
 
-    // 2. Verificar si el jugador presionó Espacio para disparar
+    // 2. Verificar Disparo
     if (gidsel->consultarDisparo()) {
         if (balon != nullptr) {
             escena->removeItem(balon);
-            delete balon; // Si había un balón perdido anterior, limpiamos memoria
+            delete balon;
         }
-        // Instanciamos el balón dinámicamente en el centro del jugador
-        // Lanzamiento: v_x0 = 0 (recto), v_y0 = -650 (velocidad inicial hacia arriba)
         balon = new Balon(gidsel->x() + 15, gidsel->y() - 15, 0, -650);
         escena->addItem(balon);
     }
 
-    // 3. Actualizar la trayectoria parabólica del balón activo
+    // 3. Física Balón
     if (balon != nullptr) {
         balon->actualizarFisica(dt);
-
-        // Si el tiro completó su parábola y cayó o salió del mapa, se destruye
         if (!balon->estaActivo()) {
             escena->removeItem(balon);
-            delete balon; // Liberación estricta de memoria dinámica
+            delete balon;
             balon = nullptr;
         }
     }
 
-    // 4. LÓGICA DE LA ZONA DE RECARGA
-    // Si el jugador no tiene el balón y no hay ningún tiro en el aire actualmente
+    // 4. Lógica de Zona de Recarga
     if (!gidsel->getTieneBalon() && balon == nullptr) {
-        // Si entra al área de su propia portería (Y > 2800)
         if (gidsel->pos().y() > 2800) {
-            gidsel->setTieneBalon(true); // ¡Recarga exitosa!
+            gidsel->setTieneBalon(true);
         }
     }
+
+    // 5. !!! NUEVO FASE 4: COLISIÓN JUGADOR - JERINGA !!!
+    if (jeringa != nullptr && gidsel->collidesWithItem(jeringa)) {
+        gidsel->activarSuperVelocidad(); // Duplica su velocidad
+
+        escena->removeItem(jeringa); // Lo saca del render
+        delete jeringa;              // Libera memoria dinámica
+        jeringa = nullptr;           // Evita punteros colgados
+
+        // Iniciamos la cuenta regresiva estricta de 30 segundos (30000 milisegundos)
+        timerPowerUp->start(30000);
+    }
+}
+
+// === NUEVO FASE 4: Slot de Apagado automático ===
+void Nivel1::terminarPowerUp() {
+    gidsel->desactivarSuperVelocidad(); // El jugador vuelve a su estado normal
 }
 
 Nivel1::~Nivel1() {
@@ -101,8 +120,8 @@ Nivel1::~Nivel1() {
     }
     listaEnemigos.clear();
 
-    // Limpieza final de seguridad del balón si se cierra el juego en pleno tiro
-    if (balon != nullptr) {
-        delete balon;
-    }
+    if (balon != nullptr) delete balon;
+
+    // Limpieza de seguridad por si se cierra el juego antes de recoger la jeringa
+    if (jeringa != nullptr) delete jeringa;
 }

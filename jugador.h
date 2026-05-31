@@ -9,14 +9,23 @@ public:
     Jugador();
     void keyPressEvent(QKeyEvent *event);
 
-    // Métodos lógicos para la posesión (Fase 3)
     bool getTieneBalon() const;
     void setTieneBalon(bool estado);
-    bool consultarDisparo(); // Avisa al nivel si el usuario presionó espacio
+    bool consultarDisparo();
+
+    // === NUEVO FASE 4: Métodos para el Power-Up ===
+    void activarSuperVelocidad();
+    void desactivarSuperVelocidad();
+    void resetearPosicion(); // Para cuando lo golpeen
 
 private:
     bool tieneBalon;
-    bool quiereDisparar; // Bandera de comunicación con el bucle de juego
+    bool quiereDisparar;
+
+    // Variables de velocidad física
+    int velocidadActual;
+    int velocidadNormal;
+    int velocidadRapida;
 };
 
 #endif // JUGADOR_H

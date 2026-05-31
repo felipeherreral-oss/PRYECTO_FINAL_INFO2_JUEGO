@@ -7,7 +7,8 @@
 #include <vector>
 #include "jugador.h"
 #include "enemigo.h"
-#include "balon.h" // Incluimos la nueva cabecera
+#include "balon.h"
+#include "jeringa.h" // Cabecera del power-up
 
 class Nivel1 : public QGraphicsView {
     Q_OBJECT
@@ -17,14 +18,19 @@ public:
 
 public slots:
     void actualizarJuego();
+    void terminarPowerUp(); // Slot para apagar la supervelocidad tras 30s
 
 private:
     QGraphicsScene *escena;
     Jugador *gidsel;
     QTimer *relojJuego;
-    std::vector<Enemigo*> listaEnemigos;
 
-    Balon *balon; // Puntero dinámico para controlar el balón en el aire
+    // === NUEVO FASE 4: Timers y Punteros del Power-up ===
+    QTimer *timerPowerUp;
+    Jeringa *jeringa;
+
+    std::vector<Enemigo*> listaEnemigos;
+    Balon *balon;
 };
 
 #endif // NIVEL1_H

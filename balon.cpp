@@ -5,8 +5,8 @@ Balon::Balon(double xIni, double yIni, double vx0, double vy0) {
     x_inicial = xIni;
     y_inicial = yIni;
     v_x0 = vx0;
-    v_y0 = vy0;   // Debe ser un valor negativo alto (ej. -600) para disparar hacia arriba
-    g = 450.0;    // Gravedad que tira el balón hacia abajo (+Y en Qt)
+    v_y0 = vy0;   // Debe ser un valor negativo alto  para disparar hacia arriba
+    g = 450.0;    // Gravedad que tira el balón hacia abajo
     tiempo = 0.0;
     activo = true;
 
