@@ -1,6 +1,7 @@
 #include "nivel1.h"
 #include <QBrush>
 #include <QPen>
+#include <QFont>
 
 Nivel1::Nivel1(QWidget *parent) : QGraphicsView(parent) {
     escena = new QGraphicsScene(this);
@@ -16,6 +17,24 @@ Nivel1::Nivel1(QWidget *parent) : QGraphicsView(parent) {
 
     escena->addRect(0, 2800, 800, 200, QPen(Qt::transparent), QBrush(QColor(0, 0, 0, 20)));
 
+    // Variables de control de la partida
+    goles = 0;
+    vidas = 3;
+
+    // Portería
+    porteria = new QGraphicsRectItem(300, 0, 200, 50);
+    porteria->setBrush(QBrush(Qt::white));
+    porteria->setPen(QPen(Qt::black, 3));
+    escena->addItem(porteria);
+
+    // Texto de Puntaje y Vidas (HUD)
+    textoPuntaje = new QGraphicsTextItem("Goles: 0 / 3   |   Vidas: 3");
+    QFont fuente("Arial", 16, QFont::Bold);
+    textoPuntaje->setFont(fuente);
+    textoPuntaje->setDefaultTextColor(Qt::darkGreen);
+    textoPuntaje->setZValue(100); // Para que siempre esté por encima del jugador y los bordes
+    escena->addItem(textoPuntaje);
+
     setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     setFixedSize(800, 600);
@@ -27,23 +46,27 @@ Nivel1::Nivel1(QWidget *parent) : QGraphicsView(parent) {
 
     balon = nullptr;
 
-    // === NUEVO FASE 4: Instanciar la Jeringa en la mitad de la cancha ===
     jeringa = new Jeringa(100, 1500);
     escena->addItem(jeringa);
 
-    // Configurar Timer del Power-up (Un solo disparo / SingleShot)
     timerPowerUp = new QTimer(this);
-    timerPowerUp->setSingleShot(true); // Se dispara una única vez al cumplir el tiempo
+    timerPowerUp->setSingleShot(true);
     connect(timerPowerUp, SIGNAL(timeout()), this, SLOT(terminarPowerUp()));
 
-    // Enemigos de Alta Dificultad
-    listaEnemigos.push_back(new Enemigo(400, 2500, 220, 3.0, Enemigo::HORIZONTAL_MAS));
+    // === ENEMIGOS REAJUSTADOS (Sin zonas seguras + Arquero) ===
+
+    // 1. EL ARQUERO: Justo frente a la portería, movimiento rapidísimo
+    listaEnemigos.push_back(new Enemigo(400, 60, 350, 4.5, Enemigo::HORIZONTAL_MAS));
+
+    // 2. Aduana Central: Ahora cubren de pared a pared (Amplitud 380)
+    listaEnemigos.push_back(new Enemigo(400, 2500, 380, 2.5, Enemigo::HORIZONTAL_MAS));
     listaEnemigos.push_back(new Enemigo(400, 2500, 150, 3.0, Enemigo::VERTICAL_MAS));
-    listaEnemigos.push_back(new Enemigo(150, 2100, 130, 1.2, Enemigo::TRAYECTORIA_L));
-    listaEnemigos.push_back(new Enemigo(400, 1600, 120, 2.0, Enemigo::CIRCULAR));
-    listaEnemigos.push_back(new Enemigo(450, 1200, 110, 1.5, Enemigo::TRAYECTORIA_L));
-    listaEnemigos.push_back(new Enemigo(400, 800,  250, 3.5, Enemigo::HORIZONTAL_MAS));
-    listaEnemigos.push_back(new Enemigo(400, 450,  100, 2.2, Enemigo::CIRCULAR));
+
+    listaEnemigos.push_back(new Enemigo(200, 2100, 180, 1.2, Enemigo::TRAYECTORIA_L));
+    listaEnemigos.push_back(new Enemigo(400, 1600, 350, 2.0, Enemigo::CIRCULAR));
+    listaEnemigos.push_back(new Enemigo(600, 1200, 180, 1.5, Enemigo::TRAYECTORIA_L));
+    listaEnemigos.push_back(new Enemigo(400, 800,  380, 3.5, Enemigo::HORIZONTAL_MAS));
+    listaEnemigos.push_back(new Enemigo(400, 450,  350, 2.2, Enemigo::CIRCULAR));
 
     for (Enemigo* ene : listaEnemigos) {
         escena->addItem(ene);
@@ -57,18 +80,30 @@ Nivel1::Nivel1(QWidget *parent) : QGraphicsView(parent) {
 void Nivel1::actualizarJuego() {
     double dt = 0.02;
 
-    // 1. Actualizar física de enemigos
+    // HUD FIJO: Lo anclamos siempre a la esquina superior izquierda de la vista actual
+    textoPuntaje->setPos(mapToScene(15, 15));
+
     for (Enemigo* ene : listaEnemigos) {
         ene->actualizarFisica(dt);
 
-        // !!! NUEVO FASE 4: COLISIÓN JUGADOR - ENEMIGO !!!
+        // COLISIÓN: Lógica de pérdida de vidas
         if (gidsel->collidesWithItem(ene)) {
-            gidsel->resetearPosicion(); // Lo regresa al inicio y pierde poderes
+            vidas--; // Resta una vida
+            gidsel->resetearPosicion();
             centerOn(gidsel);
+
+            if (vidas > 0) {
+                textoPuntaje->setPlainText("Goles: " + QString::number(goles) + " / 3   |   Vidas: " + QString::number(vidas));
+            } else {
+                // GAME OVER
+                textoPuntaje->setPlainText("¡GAME OVER! Te quedaste sin vidas.");
+                textoPuntaje->setDefaultTextColor(Qt::red);
+                relojJuego->stop(); // Congela el juego por derrota
+                return; // Sale de la función para evitar procesar más colisiones
+            }
         }
     }
 
-    // 2. Verificar Disparo
     if (gidsel->consultarDisparo()) {
         if (balon != nullptr) {
             escena->removeItem(balon);
@@ -78,39 +113,48 @@ void Nivel1::actualizarJuego() {
         escena->addItem(balon);
     }
 
-    // 3. Física Balón
     if (balon != nullptr) {
         balon->actualizarFisica(dt);
-        if (!balon->estaActivo()) {
+
+        if (balon->collidesWithItem(porteria)) {
+            goles++;
+
+            if (goles >= 3) {
+                textoPuntaje->setPlainText("¡VICTORIA! Eres el campeon.");
+                textoPuntaje->setDefaultTextColor(Qt::blue);
+                relojJuego->stop();
+            } else {
+                textoPuntaje->setPlainText("Goles: " + QString::number(goles) + " / 3   |   Vidas: " + QString::number(vidas));
+            }
+
+            escena->removeItem(balon);
+            delete balon;
+            balon = nullptr;
+        }
+        else if (!balon->estaActivo()) {
             escena->removeItem(balon);
             delete balon;
             balon = nullptr;
         }
     }
 
-    // 4. Lógica de Zona de Recarga
     if (!gidsel->getTieneBalon() && balon == nullptr) {
         if (gidsel->pos().y() > 2800) {
             gidsel->setTieneBalon(true);
         }
     }
 
-    // 5. !!! NUEVO FASE 4: COLISIÓN JUGADOR - JERINGA !!!
     if (jeringa != nullptr && gidsel->collidesWithItem(jeringa)) {
-        gidsel->activarSuperVelocidad(); // Duplica su velocidad
-
-        escena->removeItem(jeringa); // Lo saca del render
-        delete jeringa;              // Libera memoria dinámica
-        jeringa = nullptr;           // Evita punteros colgados
-
-        // Iniciamos la cuenta regresiva estricta de 30 segundos (30000 milisegundos)
+        gidsel->activarSuperVelocidad();
+        escena->removeItem(jeringa);
+        delete jeringa;
+        jeringa = nullptr;
         timerPowerUp->start(30000);
     }
 }
 
-// === NUEVO FASE 4: Slot de Apagado automático ===
 void Nivel1::terminarPowerUp() {
-    gidsel->desactivarSuperVelocidad(); // El jugador vuelve a su estado normal
+    gidsel->desactivarSuperVelocidad();
 }
 
 Nivel1::~Nivel1() {
@@ -121,7 +165,5 @@ Nivel1::~Nivel1() {
     listaEnemigos.clear();
 
     if (balon != nullptr) delete balon;
-
-    // Limpieza de seguridad por si se cierra el juego antes de recoger la jeringa
     if (jeringa != nullptr) delete jeringa;
 }
