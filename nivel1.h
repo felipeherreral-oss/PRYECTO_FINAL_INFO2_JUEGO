@@ -4,26 +4,27 @@
 #include <QGraphicsView>
 #include <QGraphicsScene>
 #include <QTimer>
-#include <vector> // Necesario para el contenedor dinámico
+#include <vector>
 #include "jugador.h"
 #include "enemigo.h"
+#include "balon.h" // Incluimos la nueva cabecera
 
 class Nivel1 : public QGraphicsView {
-    Q_OBJECT //  Esta macro permite usar funciones de Slots en Qt
+    Q_OBJECT
 public:
     Nivel1(QWidget *parent = nullptr);
     ~Nivel1();
 
 public slots:
-    // Este método se ejecutará en cada tick del reloj
     void actualizarJuego();
 
 private:
     QGraphicsScene *escena;
     Jugador *gidsel;
     QTimer *relojJuego;
+    std::vector<Enemigo*> listaEnemigos;
 
-    std::vector<Enemigo*> listaEnemigos; // Nuestro contenedor de punteros (Memoria dinámica)
+    Balon *balon; // Puntero dinámico para controlar el balón en el aire
 };
 
 #endif // NIVEL1_H

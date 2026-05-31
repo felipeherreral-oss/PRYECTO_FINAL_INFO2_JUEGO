@@ -4,12 +4,19 @@
 #include <QGraphicsRectItem>
 #include <QKeyEvent>
 
-// Heredamos de QGraphicsRectItem para que sea visible en la escena
 class Jugador : public QGraphicsRectItem {
 public:
     Jugador();
-    // Método nativo de Qt para detectar cuando se presiona una tecla
     void keyPressEvent(QKeyEvent *event);
+
+    // Métodos lógicos para la posesión (Fase 3)
+    bool getTieneBalon() const;
+    void setTieneBalon(bool estado);
+    bool consultarDisparo(); // Avisa al nivel si el usuario presionó espacio
+
+private:
+    bool tieneBalon;
+    bool quiereDisparar; // Bandera de comunicación con el bucle de juego
 };
 
 #endif // JUGADOR_H
