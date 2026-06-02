@@ -3,14 +3,15 @@
 
 #include <QGraphicsView>
 #include <QGraphicsScene>
-#include <QTimer>
-#include <QGraphicsRectItem>
 #include <QGraphicsTextItem>
-#include <vector>
-#include "jugador.h"
-#include "enemigo.h"
-#include "balon.h"
-#include "jeringa.h"
+#include <QTimer>
+#include <QKeyEvent>
+#include <QList>
+
+class Jugador;
+class Enemigo;
+class Balon;
+class Jeringa;
 
 class Nivel1 : public QGraphicsView {
     Q_OBJECT
@@ -18,25 +19,34 @@ public:
     Nivel1(QWidget *parent = nullptr);
     ~Nivel1();
 
+protected:
+    void keyPressEvent(QKeyEvent *event) override;
+
 public slots:
     void actualizarJuego();
-    void terminarPowerUp();
 
 private:
+    void disminuirVida();
+
     QGraphicsScene *escena;
     Jugador *gidsel;
-    QTimer *relojJuego;
-
-    QTimer *timerPowerUp;
+    Balon *balon;
     Jeringa *jeringa;
 
-    std::vector<Enemigo*> listaEnemigos;
-    Balon *balon;
+    Enemigo *arquero;
+    QList<Enemigo*> listaEnemigos;
 
     QGraphicsRectItem *porteria;
     QGraphicsTextItem *textoPuntaje;
+    QTimer *relojJuego;
+
     int goles;
-    int vidas; // Nueva variable para controlar las oportunidades
+    int vidas;
+
+    // NUEVAS VARIABLES PARA PANTALLA COMPLETA DINÁMICA
+    int anchoPantalla;
+    int altoPantalla;
+    int inicioXCancha;
 };
 
 #endif // NIVEL1_H

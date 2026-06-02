@@ -1,31 +1,40 @@
 #ifndef JUGADOR_H
 #define JUGADOR_H
 
-#include <QGraphicsRectItem>
+#include <QGraphicsPixmapItem>
+#include <QMap>
+#include <QPixmap>
 #include <QKeyEvent>
 
-class Jugador : public QGraphicsRectItem {
+class Jugador : public QGraphicsPixmapItem {
 public:
-    Jugador();
-    void keyPressEvent(QKeyEvent *event);
+    // Enumeración para las posibles direcciones y estados
+    enum Direccion { ARRIBA, ABAJO, IZQUIERDA, DERECHA, PARADO_ATRAS, PARADO_ADELANTE };
 
-    bool getTieneBalon() const;
-    void setTieneBalon(bool estado);
-    bool consultarDisparo();
+    Jugador(QGraphicsItem *parent = nullptr);
 
-    // === NUEVO FASE 4: Métodos para el Power-Up ===
-    void activarSuperVelocidad();
-    void desactivarSuperVelocidad();
-    void resetearPosicion(); // Para cuando lo golpeen
+    // Métodos para gestionar el estado del balón
+    void setConBalon(bool balon);
+    bool getConBalon() const;
+
+    // Métodos para gestionar la dirección y el sprite
+    void setDireccion(Direccion dir);
+    Direccion getDireccion() const;
+    void keyPressEvent(QKeyEvent *event) override;
+
+protected:
+    // Sobrecargamos el evento de teclado para el movimiento
+
 
 private:
-    bool tieneBalon;
-    bool quiereDisparar;
+    void cargarSprites();
+    void cambiarSpriteCorrecto();
 
-    // Variables de velocidad física
-    int velocidadActual;
-    int velocidadNormal;
-    int velocidadRapida;
+    QMap<QString, QPixmap> sprites;
+    bool conBalon;
+    Direccion direccionActual;
+
+    int velocidad;
 };
 
 #endif // JUGADOR_H

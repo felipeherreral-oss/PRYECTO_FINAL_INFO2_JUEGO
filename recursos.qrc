@@ -1,0 +1,16 @@
+<RCC>
+    <qresource prefix="/">
+        <file>imagenes/tribuna_der.png</file>
+        <file>imagenes/tribuna_izq.png</file>
+        <file>imagenes/madera.png</file>
+        <file>imagenes/gidsel_adelante.png</file>
+        <file>imagenes/gidsel_adelante_balon.png</file>
+        <file>imagenes/gidsel_bajando.png</file>
+        <file>imagenes/gidsel_bajando_balon.png</file>
+        <file>imagenes/gidsel_der.png</file>
+        <file>imagenes/gidsel_der_balon.png</file>
+        <file>imagenes/gidsel_izq.png</file>
+        <file>imagenes/gidsel_izq_balon.png</file>
+        <file>imagenes/gidsel_quieto_subiendo.png</file>
+    </qresource>
+</RCC>
