@@ -1,5 +1,8 @@
 #include "Level2Scene.h"
+#include "SpriteManager.h"
 #include <QGraphicsRectItem>
+#include <QGraphicsPixmapItem>
+#include <QGraphicsEllipseItem>
 #include <QGraphicsEllipseItem>
 #include <QGraphicsLineItem>
 #include <QGraphicsTextItem>
@@ -18,6 +21,15 @@ Level2Scene::Level2Scene(QObject* parent)
     , loopTimer_(new QTimer(this))
 {
     try {
+        // Cargar sprites primero — si falla muestra qué archivo falta
+        try {
+            SpriteManager::instance().loadAll();
+        } catch (const ResourceLoadException& e) {
+            // Los sprites no son críticos para que el juego funcione
+            // (se usará el fallback de QPainter). Solo advertimos.
+            qWarning("Advertencia de sprite: %s", e.what());
+        }
+
         setSceneRect(0, 0,
                      FIELD_W + 2 * FIELD_MARGIN,
                      FIELD_H + 2 * FIELD_MARGIN);
@@ -51,116 +63,40 @@ void Level2Scene::setupField() {
 }
 
 void Level2Scene::drawBackground() {
-    // ─── Fondo exterior ───────────────────────────────────────────────────────
-    auto* bg = addRect(sceneRect(),
-                       QPen(Qt::NoPen),
-                       QBrush(QColor(10, 8, 35)));
-    bg->setZValue(-20);
+    float totalW = FIELD_W + 2 * FIELD_MARGIN;
+    float totalH = FIELD_H + 2 * FIELD_MARGIN;
 
-    // Estrellas decorativas (estadio intergaláctico)
-    auto* starLayer = addRect(sceneRect(), Qt::NoPen, Qt::NoBrush);
-    starLayer->setZValue(-19);
+    // ─── Imagen de cancha como fondo completo ─────────────────────────────────
+    QPixmap fieldPx = SpriteManager::instance().getField(
+        QSize(int(totalW), int(totalH)));
 
-    // ─── Campo principal ──────────────────────────────────────────────────────
-    QRectF fieldRect(FIELD_MARGIN, FIELD_MARGIN, FIELD_W, FIELD_H);
+    auto* bgItem = new QGraphicsPixmapItem(fieldPx);
+    bgItem->setPos(0, 0);
+    bgItem->setZValue(-20);
+    addItem(bgItem);
 
-    // Gradiente de cancha (verde brillante estilo holográfico)
-    // Se dibuja como QGraphicsRectItem con brush
-    auto* fieldBase = addRect(fieldRect,
-                               QPen(QColor(150, 255, 150, 200), 3),
-                               QBrush(QColor(30, 100, 40)));
-    fieldBase->setZValue(-15);
+    // ─── Overlay semitransparente para delimitar límites jugables ────────────
+    // (la imagen ya tiene la cancha centrada, solo reforzamos los postes)
 
-    // Franjas alternadas del campo
-    int numStripes = 8;
-    float stripeW = FIELD_W / numStripes;
-    for (int i = 0; i < numStripes; i += 2) {
-        auto* stripe = addRect(
-            QRectF(FIELD_MARGIN + i * stripeW, FIELD_MARGIN, stripeW, FIELD_H),
-            Qt::NoPen,
-            QBrush(QColor(35, 110, 45)));
-        stripe->setZValue(-14);
-    }
+    // Postes arco humano (izquierda) — blanco
+    float goalTop = GOAL_Y_CENTER - GOAL_WIDTH * 0.5f;
+    float goalBot = GOAL_Y_CENTER + GOAL_WIDTH * 0.5f;
+    auto postPen  = QPen(QColor(255, 255, 255, 220), 5, Qt::SolidLine,
+                         Qt::RoundCap);
 
-    // ─── Línea central ────────────────────────────────────────────────────────
-    float centerX = FIELD_MARGIN + FIELD_W * 0.5f;
-    auto* midLine = addLine(
-        centerX, FIELD_MARGIN + 5,
-        centerX, FIELD_MARGIN + FIELD_H - 5,
-        QPen(QColor(220, 255, 220, 160), 2, Qt::DashLine));
-    midLine->setZValue(-10);
+    addLine(HUMAN_GOAL_X, goalTop, HUMAN_GOAL_X, goalBot, postPen)->setZValue(-8);
+    addLine(ENEMY_GOAL_X, goalTop, ENEMY_GOAL_X, goalBot, postPen)->setZValue(-8);
 
-    // Círculo central
-    float circR = 60.f;
-    auto* centerCircle = addEllipse(
-        centerX - circR, GOAL_Y_CENTER - circR, circR * 2, circR * 2,
-        QPen(QColor(220, 255, 220, 140), 2),
-        Qt::NoBrush);
-    centerCircle->setZValue(-10);
+    // Etiquetas de equipo
+    auto* lblHuman = addText("HUMANOS ▶", QFont("Arial", 9, QFont::Bold));
+    lblHuman->setDefaultTextColor(QColor(80, 160, 255, 200));
+    lblHuman->setPos(HUMAN_GOAL_X + 10, FIELD_MARGIN + 8);
+    lblHuman->setZValue(-7);
 
-    // Punto central
-    addEllipse(centerX - 4, GOAL_Y_CENTER - 4, 8, 8,
-               Qt::NoPen,
-               QBrush(QColor(220, 255, 220, 180)))->setZValue(-10);
-
-    // ─── Arcos ────────────────────────────────────────────────────────────────
-    float goalTop    = GOAL_Y_CENTER - GOAL_WIDTH * 0.5f;
-    float goalBot    = GOAL_Y_CENTER + GOAL_WIDTH * 0.5f;
-
-    // Arco humano (izquierda) — azul
-    auto drawGoal = [&](float gx, QColor col, bool left) {
-        float signX = left ? 1.f : -1.f;
-        // Marco del arco
-        QBrush goalBrush(QColor(col.red(), col.green(), col.blue(), 40));
-        auto* goalArea = addRect(
-            QRectF(gx - (left ? 0 : GOAL_DEPTH),
-                   goalTop - 5,
-                   GOAL_DEPTH, GOAL_WIDTH + 10),
-            QPen(col, 3), goalBrush);
-        goalArea->setZValue(-9);
-
-        // Postes
-        auto postPen = QPen(QColor(240, 240, 240), 5);
-        postPen.setCapStyle(Qt::RoundCap);
-        addLine(gx, goalTop,    gx + signX * GOAL_DEPTH * 0.0f, goalTop,    postPen)->setZValue(-8);
-        addLine(gx, goalBot,    gx + signX * GOAL_DEPTH * 0.0f, goalBot,    postPen)->setZValue(-8);
-        addLine(gx, goalTop,    gx, goalBot, postPen)->setZValue(-8);
-
-        // Red
-        QPen netPen(QColor(200, 200, 200, 80), 1);
-        int netLines = 5;
-        for (int i = 1; i < netLines; ++i) {
-            float y = goalTop + (GOAL_WIDTH / netLines) * i;
-            addLine(gx, y, gx - signX * GOAL_DEPTH, y, netPen)->setZValue(-8);
-        }
-        for (int i = 1; i < 4; ++i) {
-            float x = gx - signX * GOAL_DEPTH * i / 3.f;
-            addLine(x, goalTop, x, goalBot, netPen)->setZValue(-8);
-        }
-
-        // Área de 6m
-        float areaR = 180.f;
-        QPen areaPen(col, 2, Qt::DotLine);
-        addEllipse(gx - areaR, GOAL_Y_CENTER - areaR,
-                   areaR * 2, areaR * 2, areaPen, Qt::NoBrush)->setZValue(-9);
-
-        // Línea de 9m (tiro libre)
-        QPen ninePen(col.lighter(150), 1.5f, Qt::DashLine);
-        float nineR = 270.f;
-        addEllipse(gx - nineR, GOAL_Y_CENTER - nineR,
-                   nineR * 2, nineR * 2, ninePen, Qt::NoBrush)->setZValue(-9);
-    };
-
-    drawGoal(HUMAN_GOAL_X,  QColor(80, 150, 255), true);
-    drawGoal(ENEMY_GOAL_X,  QColor(255, 80, 80),  false);
-
-    // ─── Texto del estadio ────────────────────────────────────────────────────
-    auto* stadiumLabel = addText("⚡ ESTADIO INTERGALÁCTICO ⚡",
-                                  QFont("Arial", 9, QFont::Bold));
-    stadiumLabel->setDefaultTextColor(QColor(180, 255, 180, 120));
-    stadiumLabel->setPos(FIELD_MARGIN + FIELD_W * 0.5f - 120,
-                         FIELD_MARGIN + FIELD_H - 20);
-    stadiumLabel->setZValue(-8);
+    auto* lblEnemy = addText("◀ LOONEY TUNES", QFont("Arial", 9, QFont::Bold));
+    lblEnemy->setDefaultTextColor(QColor(255, 80, 80, 200));
+    lblEnemy->setPos(ENEMY_GOAL_X - 130, FIELD_MARGIN + 8);
+    lblEnemy->setZValue(-7);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -171,30 +107,34 @@ void Level2Scene::setupPlayers() {
     float cy = FIELD_MARGIN + FIELD_H * 0.5f;
 
     // ─── Equipo humano ────────────────────────────────────────────────────────
-    // Jugador 1: centro izquierda
+    // Jugadores humanos pueden moverse por TODO el campo (hasta el arco rival)
     auto* p1 = new HumanPlayer({cx - 120.f, cy - 60.f}, HumanPlayer::PlayerNumber::ONE);
-    p1->setBounds(FIELD_MARGIN + 5.f, cx + 50.f, FIELD_MARGIN + 5.f,
+    p1->setBounds(FIELD_MARGIN + 5.f,
+                  FIELD_MARGIN + FIELD_W - 5.f,   // ← hasta el arco rival
+                  FIELD_MARGIN + 5.f,
                   FIELD_MARGIN + FIELD_H - 5.f);
     p1->setGoalCenter({ENEMY_GOAL_X, GOAL_Y_CENTER});
     p1->setIdleTarget({cx - 150.f, cy + 80.f});
     addItem(p1);
     humanPlayers_.push_back(p1);
 
-    // Jugador 2: inicio del partido (derecha centro-izquierda)
     auto* p2 = new HumanPlayer({cx - 120.f, cy + 60.f}, HumanPlayer::PlayerNumber::TWO);
-    p2->setBounds(FIELD_MARGIN + 5.f, cx + 50.f, FIELD_MARGIN + 5.f,
+    p2->setBounds(FIELD_MARGIN + 5.f,
+                  FIELD_MARGIN + FIELD_W - 5.f,   // ← hasta el arco rival
+                  FIELD_MARGIN + 5.f,
                   FIELD_MARGIN + FIELD_H - 5.f);
     p2->setGoalCenter({ENEMY_GOAL_X, GOAL_Y_CENTER});
     p2->setIdleTarget({cx - 80.f, cy - 80.f});
     addItem(p2);
     humanPlayers_.push_back(p2);
 
-    // Arquero humano (IA) — a la izquierda
+    // Arquero humano: DENTRO del arco (x positivo = dentro del campo)
+    // HUMAN_GOAL_X está en el borde izquierdo; el arquero va justo delante
     humanGoalkeeper_ = new GoalkeeperAI(
-        {HUMAN_GOAL_X + 10.f, GOAL_Y_CENTER},
+        {HUMAN_GOAL_X + 22.f, GOAL_Y_CENTER},      // ← 22px dentro del campo
         GoalkeeperAI::Team::HUMAN,
-        HUMAN_GOAL_X - GOAL_WIDTH * 0.5f,
-        HUMAN_GOAL_X + GOAL_WIDTH * 0.5f,
+        HUMAN_GOAL_X + 5.f,                         // poste iz (dentro)
+        HUMAN_GOAL_X + 5.f + GOAL_WIDTH,            // poste der
         FIELD_W, FIELD_H);
     addItem(humanGoalkeeper_);
 
@@ -220,12 +160,12 @@ void Level2Scene::setupPlayers() {
     addItem(bugs);
     enemyPlayers_.push_back(bugs);
 
-    // Arquero rival: Speedy González (GoalkeeperAI)
+    // Arquero rival: DENTRO del arco (x negativo = dentro del campo desde la derecha)
     enemyGoalkeeper_ = new GoalkeeperAI(
-        {ENEMY_GOAL_X - 15.f, GOAL_Y_CENTER},
+        {ENEMY_GOAL_X - 22.f, GOAL_Y_CENTER},       // ← 22px dentro del campo
         GoalkeeperAI::Team::ENEMY,
-        ENEMY_GOAL_X - GOAL_WIDTH * 0.5f,
-        ENEMY_GOAL_X + GOAL_WIDTH * 0.5f,
+        ENEMY_GOAL_X - 5.f - GOAL_WIDTH,            // poste iz
+        ENEMY_GOAL_X - 5.f,                          // poste der (dentro)
         FIELD_W, FIELD_H);
     addItem(enemyGoalkeeper_);
 
@@ -482,34 +422,35 @@ void Level2Scene::checkBallPickup() {
     if (ball_->isOwned()) return;
     if (ball_->getState() == Ball::State::SHOT) return;
 
-    // ─── Jugador humano recoge el balón ───────────────────────────────────────
-    for (auto* hp : humanPlayers_) {
-        if (!hp->hasBall() && hp->overlaps(*ball_)) {
-            hp->giveBall(ball_.get());
+    // ─── Pase: el receptor recoge el balón si está cerca ─────────────────────
+    // Cualquier jugador humano puede recoger el balón libre o en pase
+    for (int i = 0; i < int(humanPlayers_.size()); ++i) {
+        HumanPlayer* hp = humanPlayers_[i];
+        if (hp->hasBall()) continue;  // ya tiene balón
+        if (!hp->overlaps(*ball_)) continue;
 
-            // El que recoge el balón se vuelve activo
-            int idx = (hp == humanPlayers_[0]) ? 0 : 1;
-            if (idx != activePlayerIdx_) {
-                humanPlayers_[activePlayerIdx_]->setActiveControl(false);
-                activePlayerIdx_ = idx;
-                humanPlayers_[activePlayerIdx_]->setActiveControl(true);
-            }
+        hp->giveBall(ball_.get());
+        enemyHasBall_ = false;
 
-            enemyHasBall_ = false;
-            return;
+        // El que recoge el balón se vuelve el jugador activo
+        if (i != activePlayerIdx_) {
+            humanPlayers_[activePlayerIdx_]->setActiveControl(false);
+            activePlayerIdx_ = i;
+            humanPlayers_[activePlayerIdx_]->setActiveControl(true);
         }
+        return;
     }
 
-    // ─── Pase recibido por el compañero ──────────────────────────────────────
-    if (ball_->getState() == Ball::State::PASSED) {
-        // El jugador sin balón que está cerca del objetivo del pase
-        HumanPlayer* receiver = getInactivePlayer();
-        if (receiver && ball_->getPosition().distanceTo(receiver->getPosition()) < 40.f) {
-            receiver->giveBall(ball_.get());
-            // Cambiar control al receptor
-            humanPlayers_[activePlayerIdx_]->setActiveControl(false);
-            activePlayerIdx_ = (activePlayerIdx_ == 0) ? 1 : 0;
-            humanPlayers_[activePlayerIdx_]->setActiveControl(true);
+    // ─── Rival recoge balón libre ─────────────────────────────────────────────
+    if (!enemyHasBall_ && ball_->getState() == Ball::State::FREE) {
+        for (auto* ep : enemyPlayers_) {
+            if (ep->overlaps(*ball_) && !ep->hasBall()) {
+                ep->takeBall(ball_.get());
+                ball_->pickup();
+                enemyHasBall_  = true;
+                enemyBallTimer_ = 1.5f;
+                return;
+            }
         }
     }
 }
@@ -603,14 +544,16 @@ void Level2Scene::resetPositions() {
     humanPlayers_[1]->setPosition({cx - 120.f, cy + 60.f});
     humanPlayers_[1]->setVelocity(Vec2D::zero());
 
-    humanGoalkeeper_->setPosition({HUMAN_GOAL_X + 10.f, GOAL_Y_CENTER});
+    humanGoalkeeper_->setPosition({HUMAN_GOAL_X + 22.f, GOAL_Y_CENTER});
+    humanGoalkeeper_->setVelocity(Vec2D::zero());
 
     enemyPlayers_[0]->setPosition({cx + 150.f, cy});
     enemyPlayers_[0]->setVelocity(Vec2D::zero());
     enemyPlayers_[1]->setPosition({cx + 80.f, cy - 120.f});
     enemyPlayers_[1]->setVelocity(Vec2D::zero());
 
-    enemyGoalkeeper_->setPosition({ENEMY_GOAL_X - 15.f, GOAL_Y_CENTER});
+    enemyGoalkeeper_->setPosition({ENEMY_GOAL_X - 22.f, GOAL_Y_CENTER});
+    enemyGoalkeeper_->setVelocity(Vec2D::zero());
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -621,25 +564,31 @@ void Level2Scene::keyPressEvent(QKeyEvent* e) {
 
     int key = e->key();
 
-    // Cambiar jugador activo con Tab
+    // ── Cambiar jugador activo con Tab ────────────────────────────────────────
     if (key == Qt::Key_Tab) {
         switchActivePlayer();
         return;
     }
 
-    // Teclas de pase (G para J1, L para J2)
-    if ((key == Qt::Key_G && humanPlayers_[0]->hasBall() && activePlayerIdx_ == 0) ||
-        (key == Qt::Key_L && humanPlayers_[1]->hasBall() && activePlayerIdx_ == 1)) {
-        HumanPlayer* active = getActivePlayer();
-        HumanPlayer* buddy  = getInactivePlayer();
-        if (active && buddy) active->passToBuddy(buddy);
+    // ── Pase: G (J1 activo) o L (J2 activo) ──────────────────────────────────
+    bool isPassKey = (key == Qt::Key_G || key == Qt::Key_L);
+    if (isPassKey) {
+        HumanPlayer* active   = getActivePlayer();
+        HumanPlayer* inactive = getInactivePlayer();
+        if (active && inactive && active->hasBall()) {
+            active->passToBuddy(inactive);
+            // El receptor se vuelve activo inmediatamente para que el jugador
+            // pueda controlarlo en cuanto reciba el pase
+            humanPlayers_[activePlayerIdx_]->setActiveControl(false);
+            activePlayerIdx_ = (activePlayerIdx_ + 1) % int(humanPlayers_.size());
+            humanPlayers_[activePlayerIdx_]->setActiveControl(true);
+        }
         return;
     }
 
-    // Propagar a ambos jugadores (solo el activo reacciona)
-    for (auto* p : humanPlayers_) {
-        if (p->isActive()) p->handleKeyPress(key);
-    }
+    // ── Movimiento y tiro: propagar solo al jugador activo ────────────────────
+    HumanPlayer* active = getActivePlayer();
+    if (active) active->handleKeyPress(key);
 }
 
 void Level2Scene::keyReleaseEvent(QKeyEvent* e) {
