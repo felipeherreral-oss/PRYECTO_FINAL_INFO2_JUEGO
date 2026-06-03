@@ -6,23 +6,20 @@
 #include <QGraphicsRectItem>
 #include <QKeyEvent>
 #include <QCloseEvent>
+#include <QResizeEvent>
 #include <QScreen>
 #include <QApplication>
-#include <QPushButton>
-#include <QVBoxLayout>
-#include <QWidget>
-#include <QLabel>
 #include <QMessageBox>
 #include <QFont>
+#include <QTimer>
 #include <QRandomGenerator>
 
 GameWindow::GameWindow(QWidget* parent)
     : QMainWindow(parent)
 {
-    setWindowTitle("🏟 Estadio Intergaláctico — Balonmano Nivel 2");
-    setMinimumSize(1200, 750);
+    setWindowTitle("Estadio Intergalactico - Balonmano Nivel 2");
+    resize(1200, 750);
 
-    // Vista de gráficos
     view_ = new QGraphicsView(this);
     view_->setRenderHints(QPainter::Antialiasing |
                           QPainter::SmoothPixmapTransform |
@@ -31,18 +28,30 @@ GameWindow::GameWindow(QWidget* parent)
     view_->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     view_->setFrameStyle(QFrame::NoFrame);
     view_->setBackgroundBrush(QBrush(QColor(5, 5, 20)));
+    view_->setAlignment(Qt::AlignCenter);
     setCentralWidget(view_);
 
-    // Centrar ventana en pantalla
+    // Centrar en pantalla
     QScreen* screen = QApplication::primaryScreen();
     if (screen) {
         QRect geo = screen->availableGeometry();
-        int x = (geo.width()  - width())  / 2;
-        int y = (geo.height() - height()) / 2;
-        move(x, y);
+        move((geo.width() - 1200) / 2, (geo.height() - 750) / 2);
     }
 
-    showStartScreen();
+    // Mostrar pantalla de inicio DESPUES de que la ventana este visible
+    // usando QTimer::singleShot para que el event loop ya haya procesado
+    // el resize y fitInView tenga dimensiones reales
+    QTimer::singleShot(50, this, &GameWindow::showStartScreen);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RESIZE — reajustar la vista cuando cambia el tamaño de la ventana
+// ─────────────────────────────────────────────────────────────────────────────
+void GameWindow::resizeEvent(QResizeEvent* e) {
+    QMainWindow::resizeEvent(e);
+    if (view_ && view_->scene()) {
+        view_->fitInView(view_->scene()->sceneRect(), Qt::KeepAspectRatio);
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -51,91 +60,81 @@ GameWindow::GameWindow(QWidget* parent)
 void GameWindow::showStartScreen() {
     auto* startScene = new QGraphicsScene(0, 0, 1200, 750, this);
 
-    // Fondo
-    startScene->addRect(0, 0, 1200, 750, Qt::NoPen,
-                        QBrush(QColor(5, 5, 30)));
+    // Fondo oscuro
+    startScene->addRect(0, 0, 1200, 750, Qt::NoPen, QBrush(QColor(5, 5, 30)));
 
-    // Estrellas decorativas
+    // Estrellas
     for (int i = 0; i < 80; ++i) {
         float x = float(QRandomGenerator::global()->bounded(1200));
         float y = float(QRandomGenerator::global()->bounded(750));
         float r = 0.5f + float(QRandomGenerator::global()->bounded(3)) * 0.5f;
-        startScene->addEllipse(x, y, r*2, r*2, Qt::NoPen,
-                               QBrush(QColor(255,255,255, 100 + QRandomGenerator::global()->bounded(155))));
+        startScene->addEllipse(x, y, r * 2, r * 2, Qt::NoPen,
+            QBrush(QColor(255, 255, 255,
+                          100 + QRandomGenerator::global()->bounded(155))));
     }
 
-    // Título principal
-    auto* title = startScene->addText(
-        "⚡ ESTADIO INTERGALÁCTICO ⚡",
-        QFont("Arial", 30, QFont::Bold));
-    title->setDefaultTextColor(QColor(80, 200, 255));
-    title->setPos(600 - title->boundingRect().width() / 2, 80);
-
-    auto* subtitle = startScene->addText(
-        "Balonmano: Humanos vs Looney Tunes",
-        QFont("Arial", 18, QFont::Normal));
-    subtitle->setDefaultTextColor(QColor(200, 255, 200));
-    subtitle->setPos(600 - subtitle->boundingRect().width() / 2, 150);
-
-    // Panel de controles
-    auto* ctrlBg = startScene->addRect(300, 220, 600, 280,
-        QPen(QColor(100, 150, 255, 120), 2),
-        QBrush(QColor(10, 20, 60, 200)));
-    ctrlBg->setZValue(1);
-
-    auto addInfoText = [&](const QString& txt, float y, QColor col = QColor(220,240,255),
-                           int fontSize = 12) {
-        auto* t = startScene->addText(txt, QFont("Arial", fontSize));
+    // Titulo
+    auto addText = [&](const QString& txt, float x, float y,
+                       int sz, QColor col, bool bold = true) {
+        auto* t = startScene->addText(txt,
+            QFont("Arial", sz, bold ? QFont::Bold : QFont::Normal));
         t->setDefaultTextColor(col);
-        t->setPos(600 - t->boundingRect().width() / 2, y);
-        t->setZValue(2);
+        t->setPos(x - t->boundingRect().width() / 2.f, y);
+        return t;
     };
 
-    addInfoText("── CONTROLES ──", 235, QColor(255, 220, 80), 14);
-    addInfoText("Jugador 1: [W/A/S/D] Mover   [F] Tiro   [G] Pase", 270);
-    addInfoText("Jugador 2: [↑/←/↓/→] Mover   [K] Tiro   [L] Pase", 298);
-    addInfoText("[TAB] Cambiar jugador activo (⬤ círculo amarillo)", 326);
-    addInfoText("── OBJETIVO ──", 365, QColor(255, 220, 80), 14);
-    addInfoText("Anota más goles que los Looney Tunes en 5 minutos", 395);
-    addInfoText("¡La IA rival aprende de tus jugadas y se vuelve más difícil!", 423,
-                QColor(255, 150, 150));
-    addInfoText("3 vs 3 · Arqueros controlados por IA · Vista cenital", 451,
-                QColor(180, 255, 180));
+    addText("ESTADIO INTERGALACTICO", 600, 60,  28, QColor(80, 200, 255));
+    addText("Balonmano: Humanos vs Looney Tunes", 600, 115, 16,
+            QColor(200, 255, 200), false);
 
-    // Botón de inicio (simulado con texto interactivo)
-    auto* startBtn = startScene->addRect(450, 530, 300, 60,
+    // Panel controles
+    startScene->addRect(250, 200, 700, 310,
+        QPen(QColor(100, 150, 255, 120), 2),
+        QBrush(QColor(10, 20, 60, 210)));
+
+    addText("-- CONTROLES --",          600, 215, 13, QColor(255, 220, 80));
+    addText("Jugador 1: [W/A/S/D]  Tiro: [F]  Pase: [G]",
+                                        600, 248, 11, QColor(220, 240, 255), false);
+    addText("Jugador 2: [Flechas]   Tiro: [K]  Pase: [L]",
+                                        600, 272, 11, QColor(220, 240, 255), false);
+    addText("[TAB] Cambiar jugador activo (circulo amarillo)",
+                                        600, 296, 11, QColor(220, 240, 255), false);
+    addText("-- OBJETIVO --",           600, 330, 13, QColor(255, 220, 80));
+    addText("Anota mas goles que los Looney Tunes en 5 minutos",
+                                        600, 360, 11, QColor(220, 240, 255), false);
+    addText("La IA rival aprende de tus jugadas y se vuelve mas dificil!",
+                                        600, 384, 11, QColor(255, 150, 150), false);
+    addText("3 vs 3  |  Arqueros controlados por IA  |  Vista cenital",
+                                        600, 408, 10, QColor(180, 255, 180), false);
+    addText("Equipos: lado DERECHO = Humanos  |  lado IZQUIERDO = Looney Tunes",
+                                        600, 432, 10, QColor(180, 255, 180), false);
+
+    // Boton iniciar
+    startScene->addRect(400, 540, 400, 60,
         QPen(QColor(100, 255, 100, 200), 2),
-        QBrush(QColor(20, 80, 20, 220)));
-    startBtn->setZValue(2);
-
-    auto* startTxt = startScene->addText("▶  INICIAR PARTIDO",
-                                          QFont("Arial", 16, QFont::Bold));
-    startTxt->setDefaultTextColor(QColor(100, 255, 100));
-    startTxt->setPos(600 - startTxt->boundingRect().width() / 2, 545);
-    startTxt->setZValue(3);
-
-    auto* pressEnter = startScene->addText("[ENTER] o click para comenzar",
-                                            QFont("Arial", 10));
-    pressEnter->setDefaultTextColor(QColor(150, 200, 150, 180));
-    pressEnter->setPos(600 - pressEnter->boundingRect().width() / 2, 620);
-    pressEnter->setZValue(2);
+        QBrush(QColor(15, 70, 15, 230)));
+    addText("PRESIONA ENTER O ESPACIO PARA INICIAR",
+            600, 558, 11, QColor(100, 255, 100));
 
     view_->setScene(startScene);
     view_->fitInView(startScene->sceneRect(), Qt::KeepAspectRatio);
+    view_->setFocus();
 
-    // Conectar click en el botón de inicio
-    view_->setInteractive(true);
-    connect(view_, &QGraphicsView::rubberBandChanged,
-            this, [](QRect, QPointF, QPointF){});
-
-    // Usar un QTimer para escuchar Enter o click
-    // El evento se maneja en keyPressEvent
+    inStartScreen_ = true;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // INICIAR JUEGO
 // ─────────────────────────────────────────────────────────────────────────────
 void GameWindow::startGame() {
+    if (!inStartScreen_) return;
+    inStartScreen_ = false;
+
+    // Borrar escena anterior
+    QGraphicsScene* old = view_->scene();
+    view_->setScene(nullptr);
+    if (old && old != scene_) delete old;
+
     try {
         scene_ = new Level2Scene(this);
         view_->setScene(scene_);
@@ -147,7 +146,11 @@ void GameWindow::startGame() {
 
     } catch (const GameException& e) {
         QMessageBox::critical(this, "Error al iniciar",
-                              QString("Error: %1").arg(e.what()));
+            QString("Error al cargar el nivel:\n%1\n\n"
+                    "Verifica que los archivos de imagen esten en:\n"
+                    "resources/images/").arg(e.what()));
+        inStartScreen_ = true;
+        showStartScreen();
     }
 }
 
@@ -157,50 +160,49 @@ void GameWindow::startGame() {
 void GameWindow::showEndScreen(bool humanWon, int hGoals, int eGoals) {
     auto* endScene = new QGraphicsScene(0, 0, 1200, 750, this);
     endScene->addRect(0, 0, 1200, 750, Qt::NoPen,
-                      QBrush(humanWon ? QColor(5, 30, 5) : QColor(30, 5, 5)));
+        QBrush(humanWon ? QColor(5, 30, 5) : QColor(30, 5, 5)));
 
-    QString resultText = humanWon ? "🏆 ¡VICTORIA!" : (hGoals == eGoals ? "🤝 ¡EMPATE!" : "💀 DERROTA");
-    QColor  resultCol  = humanWon ? QColor(255, 220, 0) : (hGoals == eGoals ? Qt::cyan : QColor(255,80,80));
+    QString resultText = humanWon ? "VICTORIA!" :
+                         (hGoals == eGoals ? "EMPATE!" : "DERROTA...");
+    QColor  resultCol  = humanWon ? QColor(255, 220, 0) :
+                         (hGoals == eGoals ? Qt::cyan : QColor(255, 80, 80));
 
-    auto* result = endScene->addText(resultText, QFont("Arial", 40, QFont::Bold));
-    result->setDefaultTextColor(resultCol);
-    result->setPos(600 - result->boundingRect().width() / 2, 150);
+    auto addText = [&](const QString& txt, float x, float y,
+                       int sz, QColor col, bool bold = true) {
+        auto* t = endScene->addText(txt,
+            QFont("Arial", sz, bold ? QFont::Bold : QFont::Normal));
+        t->setDefaultTextColor(col);
+        t->setPos(x - t->boundingRect().width() / 2.f, y);
+        return t;
+    };
 
-    auto* score = endScene->addText(
-        QString("HUMANOS  %1  —  %2  LOONEY TUNES").arg(hGoals).arg(eGoals),
-        QFont("Arial", 22, QFont::Bold));
-    score->setDefaultTextColor(Qt::white);
-    score->setPos(600 - score->boundingRect().width() / 2, 250);
+    addText(resultText, 600, 140, 40, resultCol);
+    addText(QString("HUMANOS  %1  -  %2  LOONEY TUNES")
+            .arg(hGoals).arg(eGoals), 600, 240, 22, Qt::white);
 
-    auto* msg = endScene->addText(
-        humanWon ? "¡Gidsel y compañía demostraron que los humanos\npueden superar las leyes de la física caricaturesca!"
-                 : "¡Los Looney Tunes aprendieron de tus jugadas\ny te derrotaron con su física caricaturesca!",
-        QFont("Arial", 14));
-    msg->setDefaultTextColor(QColor(200, 230, 255));
-    msg->setPos(600 - msg->boundingRect().width() / 2, 330);
+    QString msg = humanWon
+        ? "Gidsel y compania demostraron que los humanos\npueden superar a los Looney Tunes!"
+        : "Los Looney Tunes aprendieron de tus jugadas\ny te derrotaron con fisica caricaturesca!";
+    addText(msg, 600, 320, 13, QColor(200, 230, 255), false);
 
-    // Botón reiniciar
-    auto* restartBtn = endScene->addRect(400, 500, 200, 55,
-        QPen(QColor(100, 255, 100, 200), 2), QBrush(QColor(20, 80, 20, 200)));
-    auto* restartTxt = endScene->addText("↺ REINICIAR", QFont("Arial", 14, QFont::Bold));
-    restartTxt->setDefaultTextColor(QColor(100, 255, 100));
-    restartTxt->setPos(500 - restartTxt->boundingRect().width() / 2, 515);
-    (void)restartBtn;
+    // Botones
+    endScene->addRect(350, 490, 200, 55,
+        QPen(QColor(100, 255, 100, 200), 2), QBrush(QColor(15, 70, 15, 220)));
+    addText("[R] REINICIAR", 450, 507, 12, QColor(100, 255, 100));
 
-    // Botón salir
-    auto* exitBtn = endScene->addRect(620, 500, 180, 55,
-        QPen(QColor(255, 100, 100, 200), 2), QBrush(QColor(80, 20, 20, 200)));
-    auto* exitTxt = endScene->addText("✖ SALIR", QFont("Arial", 14, QFont::Bold));
-    exitTxt->setDefaultTextColor(QColor(255, 100, 100));
-    exitTxt->setPos(710 - exitTxt->boundingRect().width() / 2, 515);
-    (void)exitBtn;
+    endScene->addRect(650, 490, 200, 55,
+        QPen(QColor(255, 100, 100, 200), 2), QBrush(QColor(70, 15, 15, 220)));
+    addText("[ESC] SALIR", 750, 507, 12, QColor(255, 100, 100));
 
-    auto* hint = endScene->addText("[R] Reiniciar   [ESC] Salir", QFont("Arial", 10));
-    hint->setDefaultTextColor(QColor(150, 150, 150));
-    hint->setPos(600 - hint->boundingRect().width() / 2, 600);
-
+    QGraphicsScene* old = view_->scene();
     view_->setScene(endScene);
+    if (old && old != scene_) delete old;
+    if (scene_) { delete scene_; scene_ = nullptr; }
+
     view_->fitInView(endScene->sceneRect(), Qt::KeepAspectRatio);
+    view_->setFocus();
+    inStartScreen_ = false;
+    inEndScreen_   = true;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -216,46 +218,48 @@ void GameWindow::onLevelCompleted(bool humanWon) {
 }
 
 void GameWindow::keyPressEvent(QKeyEvent* ev) {
-    // En pantalla de inicio o fin: Enter = acción
-    if (!scene_ || !view_->scene()) {
-        if (ev->key() == Qt::Key_Return || ev->key() == Qt::Key_Enter ||
-            ev->key() == Qt::Key_Space) {
+    int key = ev->key();
+
+    // Pantalla de inicio
+    if (inStartScreen_) {
+        if (key == Qt::Key_Return || key == Qt::Key_Enter ||
+            key == Qt::Key_Space) {
             startGame();
-            return;
         }
+        return;
     }
 
-    // En pantalla de fin: R = reiniciar, ESC = salir
-    if (scene_ && !scene_->getGameManager()->isPlaying()) {
-        if (ev->key() == Qt::Key_R) {
-            delete scene_;
-            scene_ = nullptr;
-            startGame();
-            return;
-        }
-        if (ev->key() == Qt::Key_Escape) {
+    // Pantalla de fin
+    if (inEndScreen_) {
+        if (key == Qt::Key_R) {
+            inEndScreen_ = false;
+            inStartScreen_ = true;
+            showStartScreen();
+        } else if (key == Qt::Key_Escape) {
             close();
-            return;
         }
+        return;
     }
 
-    // Durante el juego: pasar eventos a la escena
+    // En juego
     if (scene_) {
+        if (key == Qt::Key_Escape) {
+            // Pausa rapida: volver al inicio
+            inEndScreen_   = false;
+            inStartScreen_ = true;
+            if (scene_) { delete scene_; scene_ = nullptr; }
+            showStartScreen();
+            return;
+        }
         scene_->keyPressEvent(ev);
     }
-
-    QMainWindow::keyPressEvent(ev);
 }
 
 void GameWindow::keyReleaseEvent(QKeyEvent* ev) {
-    if (scene_) scene_->keyReleaseEvent(ev);
-    QMainWindow::keyReleaseEvent(ev);
+    if (scene_ && !inStartScreen_ && !inEndScreen_)
+        scene_->keyReleaseEvent(ev);
 }
 
 void GameWindow::closeEvent(QCloseEvent* ev) {
     ev->accept();
-}
-
-void GameWindow::setupView() {
-    view_->setFocus();
 }
