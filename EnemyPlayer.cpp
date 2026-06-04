@@ -1,5 +1,6 @@
 #include "EnemyPlayer.h"
 #include "Ball.h"
+#include "SpriteManager.h"
 #include <QPainter>
 #include <cmath>
 
@@ -13,31 +14,59 @@ EnemyPlayer::EnemyPlayer(Vec2D pos, EnemyType type,
     , omega_(omega)
     , phi0_(phi0)
     , agent_(std::make_unique<AIAgent>(AIAgent::AgentType::FIELD_DEFENDER, fieldW, fieldH))
+    , spinTimer_(0.f)
+    , dizzyTimer_(0.f)
 {
     setZValue(4);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 void EnemyPlayer::update(float dt) {
     if (!active) return;
 
+    // Avanzar timer de tornado y mareo
+    if (isSpinning_) {
+        spinTimer_ -= dt;
+        if (spinTimer_ <= 0.f) {
+            isSpinning_ = false;
+            isDizzy_    = true;
+            dizzyTimer_ = DIZZY_DURATION;
+            currentAnim_ = SpriteManager::AnimState::DIZZY;
+        } else {
+            currentAnim_ = SpriteManager::AnimState::SPIN;
+        }
+    } else if (isDizzy_) {
+        dizzyTimer_ -= dt;
+        if (dizzyTimer_ <= 0.f) {
+            isDizzy_     = false;
+            currentAnim_ = SpriteManager::AnimState::IDLE;
+        }
+    }
+
+    // Animación
     animTimer_ += dt;
-    if (animTimer_ >= 0.12f) {
+    float animSpeed = (currentAnim_ == SpriteManager::AnimState::RUN)  ? 10.f :
+                      (currentAnim_ == SpriteManager::AnimState::SPIN) ? 14.f : 5.f;
+    if (animTimer_ >= 1.f / animSpeed) {
         animTimer_ = 0.f;
-        animFrame_ = (animFrame_ + 1) % 4;
+        animFrame_ = (animFrame_ + 1) %
+            std::max(1, SpriteManager::instance().frameCount(spriteKey(), currentAnim_));
+    }
+
+    // Si lleva el balón, mantenerlo pegado al jugador (driblando)
+    if (hasBall_ && heldBall_) {
+        Vec2D offset = {-16.f, -10.f};   // ligeramente hacia el arco humano
+        heldBall_->setPosition(position + offset);
     }
 
     setPos(position.x, position.y);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 void EnemyPlayer::updateAI(Vec2D ballPos, Vec2D ballVel,
                             Vec2D humanPlayerPos, bool humanIsShooting,
                             Vec2D ownGoalCenter, float dt)
 {
-    if (!active) return;
+    if (!active || isDizzy_) return;
 
-    // PERCEPCIÓN
     agent_->perceive(ballPos, ballVel, humanPlayerPos, humanIsShooting);
 
     if (type_ == EnemyType::TAZMANIA) {
@@ -48,291 +77,157 @@ void EnemyPlayer::updateAI(Vec2D ballPos, Vec2D ballVel,
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// TAZMANIA — Movimiento Circular Uniforme + detección de balón cercano
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── TAZMANIA ─────────────────────────────────────────────────────────────────
 void EnemyPlayer::updateTazmania(Vec2D ballPos, Vec2D humanPos, float dt) {
+    if (isSpinning_ || isDizzy_) return;
+
     orbitTime_ += dt;
 
-    float distToBall = position.distanceTo(ballPos);
+    float distToBall  = position.distanceTo(ballPos);
     float distToHuman = position.distanceTo(humanPos);
 
+    // Activar tornado aleatoriamente cuando no tiene el balón
+    spinCooldown_ -= dt;
+    if (!hasBall_ && spinCooldown_ <= 0.f &&
+        distToHuman < 200.f && agent_->getDifficultyLevel() > 0.3f) {
+        isSpinning_   = true;
+        spinTimer_    = SPIN_DURATION;
+        spinCooldown_ = SPIN_COOLDOWN_MIN +
+                        std::sin(orbitTime_ * 7.3f) * 2.f; // pseudo-random
+        currentAnim_ = SpriteManager::AnimState::SPIN;
+        state_ = EnemyState::INTERCEPTING;
+        return;
+    }
+
     if (distToBall < 80.f || distToHuman < 60.f) {
-        // Intercepción: sale de la órbita y se lanza hacia el objetivo
         state_ = EnemyState::INTERCEPTING;
         Vec2D target = (distToBall < distToHuman) ? ballPos : humanPos;
-        Vec2D dir = (target - position).normalized();
-        float speed = agent_->getMaxSpeed() * 1.2f;
-        Vec2D desired = dir * speed;
-        velocity = agent_->act(desired);
-
-        Vec2D newPos = position + velocity * dt;
-        setPosition(newPos);
-
-        // Velocidad angular en órbita (para colisión elástica)
-        // La velocidad de la órbita en el punto actual
-        Vec2D orbitVel = PhysicsEngine::circularVelocity(orbitRadius_, omega_, phi0_, orbitTime_);
-        velocity = velocity + orbitVel * 0.3f; // Mezcla de órbita e intercepción
+        Vec2D dir    = (target - position).normalized();
+        float speed  = agent_->getMaxSpeed() * 1.2f;
+        velocity     = agent_->act(dir * speed);
+        Vec2D orbitVel = PhysicsEngine::circularVelocity(
+            orbitRadius_, omega_, phi0_, orbitTime_);
+        velocity = velocity + orbitVel * 0.3f;
+        setPosition(PhysicsEngine::clampToField(
+            position + velocity * dt, minX_, maxX_, minY_, maxY_));
+        currentAnim_ = SpriteManager::AnimState::RUN;
     } else {
-        // MCU puro
         state_ = EnemyState::ORBITING;
         Vec2D newPos = PhysicsEngine::circularPosition(
             orbitCenter_, orbitRadius_, omega_, phi0_, orbitTime_);
-        velocity = PhysicsEngine::circularVelocity(orbitRadius_, omega_, phi0_, orbitTime_);
-        setPosition(newPos);
+        velocity = PhysicsEngine::circularVelocity(
+            orbitRadius_, omega_, phi0_, orbitTime_);
+        setPosition(PhysicsEngine::clampToField(newPos, minX_, maxX_, minY_, maxY_));
+        currentAnim_ = SpriteManager::AnimState::RUN;
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// BUGS / DAFFY — Defensa posicional con AIAgent
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── BUGS / DAFFY ─────────────────────────────────────────────────────────────
 void EnemyPlayer::updateFieldPlayer(Vec2D ballPos, Vec2D ballVel,
                                      Vec2D humanPos, bool isShooting,
                                      Vec2D goalCenter, float dt)
 {
-    // RAZONAMIENTO
-    Vec2D desired = agent_->reason(position, goalCenter, dt);
-    // ACCIÓN
-    velocity = agent_->act(desired);
+    (void)ballVel; (void)humanPos; (void)isShooting;
 
-    Vec2D newPos = position + velocity * dt;
+    Vec2D desired    = agent_->reason(position, goalCenter, dt);
+    velocity         = agent_->act(desired);
 
-    // Mantener en su mitad del campo
-    newPos = PhysicsEngine::clampToField(newPos,
-        goalCenter.x - 500.f, goalCenter.x + 50.f,
-        50.f, 620.f);
-
+    Vec2D newPos = PhysicsEngine::clampToField(
+        position + velocity * dt, minX_, maxX_, minY_, maxY_);
     setPosition(newPos);
+
+    float distToBall = position.distanceTo(ballPos);
+    currentAnim_ = (velocity.lengthSq() > 400.f)
+                   ? SpriteManager::AnimState::RUN
+                   : (distToBall < 150.f ? SpriteManager::AnimState::DEFEND
+                                         : SpriteManager::AnimState::IDLE);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── Movimiento ofensivo / persecución controlado por la escena ───────────────
+void EnemyPlayer::steerTo(Vec2D target, float speed, float dt) {
+    if (!active || isDizzy_) return;
+
+    Vec2D dir = target - position;
+    float dist = dir.length();
+    if (dist > 2.f) {
+        velocity = dir.normalized() * speed;
+    } else {
+        velocity = Vec2D::zero();
+    }
+
+    Vec2D newPos = PhysicsEngine::clampToField(
+        position + velocity * dt, minX_, maxX_, minY_, maxY_);
+    setPosition(newPos);
+
+    if (!isSpinning_) {
+        currentAnim_ = (velocity.lengthSq() > 200.f)
+                       ? SpriteManager::AnimState::RUN
+                       : SpriteManager::AnimState::IDLE;
+    }
+}
+
 void EnemyPlayer::updateDifficulty(float gameTimeSeconds) {
     agent_->updateDifficulty(gameTimeSeconds);
-    // Actualizar velocidad de persecución también
     chaseSpeed_ = 120.f + 100.f * agent_->getDifficultyLevel();
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 float EnemyPlayer::getMass() const {
     switch (type_) {
-    case EnemyType::TAZMANIA:    return 120.f; // Tazmania es más pesado
-    case EnemyType::BUGS_BUNNY:  return 60.f;
-    case EnemyType::DAFFY_DUCK:  return 65.f;
+    case EnemyType::TAZMANIA:   return 120.f;
+    case EnemyType::BUGS_BUNNY: return 60.f;
+    case EnemyType::DAFFY_DUCK: return 65.f;
     }
     return 70.f;
 }
 
 void EnemyPlayer::onCollision(Collidable* other, Vec2D normal) {
     (void)other; (void)normal;
-    // La resolución de colisión elástica la hace Level2Scene
 }
 
 void EnemyPlayer::takeBall(Ball* b) {
-    hasBall_ = true;
+    hasBall_  = true;
     heldBall_ = b;
+    currentAnim_ = SpriteManager::AnimState::SHOOT;
 }
 
 Ball* EnemyPlayer::dropBall() {
-    hasBall_ = false;
-    Ball* b = heldBall_;
+    hasBall_  = false;
+    Ball* b   = heldBall_;
     heldBall_ = nullptr;
+    currentAnim_ = SpriteManager::AnimState::IDLE;
     return b;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// PINTURA
-// ─────────────────────────────────────────────────────────────────────────────
+// ── PAINT ─────────────────────────────────────────────────────────────────────
 void EnemyPlayer::paint(QPainter* p, const QStyleOptionGraphicsItem*, QWidget*) {
     p->setRenderHint(QPainter::Antialiasing);
-    switch (type_) {
-    case EnemyType::TAZMANIA:   drawTazmania(p);  break;
-    case EnemyType::BUGS_BUNNY: drawBugsBunny(p); break;
-    case EnemyType::DAFFY_DUCK: drawDaffyDuck(p); break;
-    }
-}
+    p->setRenderHint(QPainter::SmoothPixmapTransform);
 
-void EnemyPlayer::drawTazmania(QPainter* p) {
-    // Cuerpo marrón grande y redondo del Tazmania
-    float legSwing = std::sin(animFrame_ * 1.57f) * 8.f;
+    SpriteManager& sm = SpriteManager::instance();
+    QSize sprSize = (type_ == EnemyType::TAZMANIA) ? QSize(80, 90) : QSize(68, 85);
 
-    // Sombra
-    p->setBrush(QColor(0,0,0,60));
-    p->setPen(Qt::NoPen);
-    p->drawEllipse(QPointF(2, 20), 18, 6);
+    // Tazmania siempre mira hacia la izquierda (hacia el arco humano)
+    bool flipH = (velocity.x > 10.f);
 
-    // Piernas
-    p->setBrush(QColor(100, 60, 20));
-    p->drawRoundedRect(QRectF(-12 + legSwing, 12, 10, 16), 4, 4);
-    p->drawRoundedRect(QRectF(2   - legSwing, 12, 10, 16), 4, 4);
+    QPixmap frame = sm.getFrame(spriteKey(), currentAnim_,
+                                animFrame_, sprSize, flipH);
+    p->drawPixmap(-sprSize.width() / 2, -sprSize.height() / 2, frame);
 
-    // Cuerpo principal (marrón grisáceo)
-    QRadialGradient bodyGrad(-5, -5, 28);
-    bodyGrad.setColorAt(0, QColor(140, 100, 60));
-    bodyGrad.setColorAt(1, QColor(80, 50, 20));
-    p->setBrush(bodyGrad);
-    p->setPen(QPen(QColor(60, 30, 10), 1.5f));
-    p->drawEllipse(QPointF(0, 2), 22, 20);
-
-    // Panza más clara
-    p->setBrush(QColor(200, 170, 120));
-    p->setPen(Qt::NoPen);
-    p->drawEllipse(QPointF(0, 5), 12, 12);
-
-    // Cabeza
-    p->setBrush(QColor(130, 90, 50));
-    p->setPen(QPen(QColor(60, 30, 10), 1.5f));
-    p->drawEllipse(QPointF(0, -18), 16, 15);
-
-    // Mandíbula grande (icónica de Tazmania)
-    p->setBrush(QColor(200, 170, 120));
-    p->drawChord(QRectF(-14, -12, 28, 18), 200 * 16, 140 * 16);
-
-    // Ojos salvajes
-    p->setBrush(Qt::white);
-    p->setPen(QPen(Qt::black, 1));
-    p->drawEllipse(QPointF(-5, -21), 5, 5);
-    p->drawEllipse(QPointF(5,  -21), 5, 5);
-    p->setBrush(Qt::black);
-    p->drawEllipse(QPointF(-4, -21), 3, 3);
-    p->drawEllipse(QPointF(6,  -21), 3, 3);
-
-    // Espiral de tormenta cuando está en intercepción
-    if (state_ == EnemyState::INTERCEPTING) {
-        p->setPen(QPen(QColor(255, 140, 0, 180), 2));
+    // Efecto de espiral sobre Tazmania cuando está mareado
+    if (isDizzy_) {
+        p->setPen(QPen(QColor(255, 220, 0, 180), 1.5f));
         p->setBrush(Qt::NoBrush);
-        for (int i = 0; i < 3; ++i) {
-            float r = 28.f + i * 8.f;
-            p->drawEllipse(QPointF(0, 0), r, r * 0.4f);
-        }
+        float r = 28.f + std::sin(dizzyTimer_ * 8.f) * 4.f;
+        p->drawEllipse(QPointF(0, -sprSize.height()/2 - 10), r * 0.6f, r * 0.3f);
+        p->drawEllipse(QPointF(0, -sprSize.height()/2 - 18), r * 0.4f, r * 0.2f);
     }
-
-    // Camiseta de los Looney Tunes (rojo con "LT")
-    p->setBrush(QColor(200, 30, 30));
-    p->setPen(Qt::NoPen);
-    p->drawRoundedRect(QRectF(-10, -4, 20, 12), 4, 4);
-    p->setPen(Qt::white);
-    p->setFont(QFont("Arial", 5, QFont::Bold));
-    p->drawText(QRectF(-8, -2, 16, 10), Qt::AlignCenter, "LT");
 }
 
-void EnemyPlayer::drawBugsBunny(QPainter* p) {
-    float legSwing = std::sin(animFrame_ * 1.57f) * 6.f;
-
-    p->setBrush(QColor(0,0,0,50));
-    p->setPen(Qt::NoPen);
-    p->drawEllipse(QPointF(2, 18), 12, 4);
-
-    // Piernas
-    p->setBrush(QColor(180, 180, 180));
-    p->drawRoundedRect(QRectF(-8 + legSwing, 10, 7, 16), 3, 3);
-    p->drawRoundedRect(QRectF(1  - legSwing, 10, 7, 16), 3, 3);
-
-    // Cuerpo gris
-    p->setBrush(QColor(200, 200, 200));
-    p->setPen(QPen(QColor(150, 150, 150), 1));
-    p->drawRoundedRect(QRectF(-11, -4, 22, 18), 5, 5);
-
-    // Camiseta roja LT
-    p->setBrush(QColor(200, 30, 30));
-    p->setPen(Qt::NoPen);
-    p->drawRoundedRect(QRectF(-9, -2, 18, 12), 3, 3);
-    p->setPen(Qt::white);
-    p->setFont(QFont("Arial", 5, QFont::Bold));
-    p->drawText(QRectF(-7, 0, 14, 8), Qt::AlignCenter, "LT");
-
-    // Cabeza
-    p->setBrush(QColor(210, 210, 210));
-    p->setPen(QPen(QColor(150,150,150), 1));
-    p->drawEllipse(QPointF(0, -14), 11, 11);
-
-    // Orejas largas de conejo
-    p->setBrush(QColor(210, 210, 210));
-    p->setPen(QPen(QColor(150,150,150), 1));
-    p->drawRoundedRect(QRectF(-7, -36, 6, 22), 3, 3);
-    p->drawRoundedRect(QRectF(1,  -36, 6, 22), 3, 3);
-    // Interior rosado
-    p->setBrush(QColor(255, 180, 180));
-    p->setPen(Qt::NoPen);
-    p->drawRoundedRect(QRectF(-5.5f, -35, 3, 19), 2, 2);
-    p->drawRoundedRect(QRectF(2.5f,  -35, 3, 19), 2, 2);
-
-    // Ojos
-    p->setBrush(Qt::white);
-    p->setPen(Qt::NoPen);
-    p->drawEllipse(QPointF(-4, -15), 3, 3);
-    p->drawEllipse(QPointF(4,  -15), 3, 3);
-    p->setBrush(QColor(100, 180, 255));
-    p->drawEllipse(QPointF(-4, -15), 2, 2);
-    p->drawEllipse(QPointF(4,  -15), 2, 2);
-    p->setBrush(Qt::black);
-    p->drawEllipse(QPointF(-4, -15), 1, 1);
-    p->drawEllipse(QPointF(4,  -15), 1, 1);
-
-    // Nariz rosada
-    p->setBrush(QColor(255, 100, 100));
-    p->drawEllipse(QPointF(0, -11), 2, 1.5f);
-
-    // Dientes blancos
-    p->setBrush(Qt::white);
-    p->drawRoundedRect(QRectF(-3, -9, 2.5f, 4), 1, 1);
-    p->drawRoundedRect(QRectF(0.5f, -9, 2.5f, 4), 1, 1);
-}
-
-void EnemyPlayer::drawDaffyDuck(QPainter* p) {
-    float legSwing = std::sin(animFrame_ * 1.57f) * 6.f;
-
-    p->setBrush(QColor(0,0,0,50));
-    p->setPen(Qt::NoPen);
-    p->drawEllipse(QPointF(2, 18), 12, 4);
-
-    // Piernas
-    p->setBrush(QColor(30, 30, 30));
-    p->drawRoundedRect(QRectF(-8 + legSwing, 10, 7, 16), 3, 3);
-    p->drawRoundedRect(QRectF(1  - legSwing, 10, 7, 16), 3, 3);
-    // Pies naranja
-    p->setBrush(QColor(255, 140, 0));
-    p->drawEllipse(QPointF(-5 + legSwing, 26), 6, 3);
-    p->drawEllipse(QPointF(4  - legSwing, 26), 6, 3);
-
-    // Cuerpo negro
-    p->setBrush(QColor(30, 30, 30));
-    p->setPen(QPen(QColor(10, 10, 10), 1));
-    p->drawRoundedRect(QRectF(-11, -4, 22, 18), 5, 5);
-
-    // Camiseta roja LT
-    p->setBrush(QColor(200, 30, 30));
-    p->setPen(Qt::NoPen);
-    p->drawRoundedRect(QRectF(-9, -2, 18, 12), 3, 3);
-    p->setPen(Qt::white);
-    p->setFont(QFont("Arial", 5, QFont::Bold));
-    p->drawText(QRectF(-7, 0, 14, 8), Qt::AlignCenter, "LT");
-
-    // Cuello blanco (collar)
-    p->setBrush(Qt::white);
-    p->setPen(Qt::NoPen);
-    p->drawEllipse(QPointF(0, -6), 8, 4);
-
-    // Cabeza negra
-    p->setBrush(QColor(30, 30, 30));
-    p->setPen(QPen(QColor(10, 10, 10), 1));
-    p->drawEllipse(QPointF(0, -16), 12, 11);
-
-    // Pico naranja (característica de Daffy)
-    p->setBrush(QColor(255, 140, 0));
-    p->setPen(QPen(QColor(200, 100, 0), 1));
-    QPainterPath beak;
-    beak.moveTo(-5, -12);
-    beak.lineTo(-12, -8);
-    beak.lineTo(-5, -5);
-    beak.closeSubpath();
-    p->drawPath(beak);
-
-    // Ojos amarillos
-    p->setBrush(Qt::yellow);
-    p->setPen(Qt::NoPen);
-    p->drawEllipse(QPointF(-3, -19), 4, 4);
-    p->drawEllipse(QPointF(5,  -19), 4, 4);
-    p->setBrush(Qt::black);
-    p->drawEllipse(QPointF(-3, -19), 2, 2);
-    p->drawEllipse(QPointF(5,  -19), 2, 2);
+QString EnemyPlayer::spriteKey() const {
+    switch (type_) {
+    case EnemyType::TAZMANIA:   return "taz";
+    case EnemyType::BUGS_BUNNY: return "bugs";
+    case EnemyType::DAFFY_DUCK: return "gk_enemy";
+    }
+    return "taz";
 }
