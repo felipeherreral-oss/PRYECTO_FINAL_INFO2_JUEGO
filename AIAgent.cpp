@@ -137,23 +137,42 @@ void AIAgent::learnFromSave(GoalZone zone) {
 // DIFICULTAD DINÁMICA
 // ─────────────────────────────────────────────────────────────────────────────
 void AIAgent::updateDifficulty(float gameTimeSeconds) {
-    // Curva suave: dificultad crece linealmente durante los primeros 3 minutos
-    // y se estabiliza cerca de 0.85 (no llega al 100% para que siempre sea posible ganar)
-    constexpr float RAMP_DURATION = 180.f;  // 3 minutos para alcanzar máximo
-    float timeFactor = std::min(1.f, gameTimeSeconds / RAMP_DURATION);
+    // Curva suave: la dificultad crece desde el nivel base del perfil hasta un
+    // máximo cercano a 0.9 a lo largo de rampDuration_ segundos.
+    float rampDuration = std::max(30.f, rampDuration_);
+    float timeFactor = std::min(1.f, gameTimeSeconds / rampDuration);
 
     // Base de tiempo (sin aprendizaje)
-    float baseDifficulty = 0.15f + 0.70f * timeFactor;
+    float baseDifficulty = baseLevel_ + (0.88f - baseLevel_) * timeFactor;
 
-    // El aprendizaje puede agregar hasta 0.15 adicional
+    // El aprendizaje puede agregar hasta 0.12 adicional
     int totalGoals = goalsByZone_[0] + goalsByZone_[1] + goalsByZone_[2];
-    float learningBonus = std::min(0.15f, totalGoals * 0.02f);
+    float learningBonus = std::min(0.12f, totalGoals * 0.02f);
 
     difficultyLevel_ = std::min(1.f, baseDifficulty + learningBonus);
 
     // Actualizar parámetros derivados
     currentMaxSpeed_ = MAX_SPEED_EASY + (MAX_SPEED_HARD - MAX_SPEED_EASY) * difficultyLevel_;
     reactionDelay_   = MAX_DELAY_EASY - (MAX_DELAY_EASY - MIN_DELAY_HARD) * difficultyLevel_;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PERFIL DE DIFICULTAD (selección del usuario) + SESGO APRENDIDO
+// ─────────────────────────────────────────────────────────────────────────────
+void AIAgent::setProfile(float baseLevel, float rampSeconds) {
+    baseLevel_       = std::max(0.f, std::min(1.f, baseLevel));
+    rampDuration_    = std::max(30.f, rampSeconds);
+    difficultyLevel_ = baseLevel_;
+    currentMaxSpeed_ = MAX_SPEED_EASY + (MAX_SPEED_HARD - MAX_SPEED_EASY) * difficultyLevel_;
+    reactionDelay_   = MAX_DELAY_EASY - (MAX_DELAY_EASY - MIN_DELAY_HARD) * difficultyLevel_;
+}
+
+float AIAgent::learnedZoneBias() const {
+    int l = goalsByZone_[0];   // zona LEFT (Y baja)
+    int r = goalsByZone_[2];   // zona RIGHT (Y alta)
+    int tot = l + goalsByZone_[1] + r;
+    if (tot == 0) return 0.f;
+    return float(r - l) / float(tot);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

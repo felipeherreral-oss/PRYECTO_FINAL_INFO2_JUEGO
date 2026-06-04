@@ -93,6 +93,20 @@ public:
     /** Retorna el nivel de dificultad actual [0.0 – 1.0]. */
     float getDifficultyLevel() const { return difficultyLevel_; }
 
+    /**
+     * Sesgo aprendido a lo largo del eje del arco, en [-1, 1].
+     * -1 = le anotan más por la zona "baja"/izquierda del arco,
+     * +1 = más por la zona "alta"/derecha, 0 = sin datos o centrado.
+     */
+    float learnedZoneBias() const;
+
+    /**
+     * Configura el perfil de dificultad (selección Fácil/Normal/Difícil).
+     * @param baseLevel    Nivel inicial [0,1].
+     * @param rampSeconds  Segundos para alcanzar la dificultad máxima.
+     */
+    void setProfile(float baseLevel, float rampSeconds);
+
     // ── Utilidades ────────────────────────────────────────────────────────────
     GoalZone predictedZone() const { return predictedZone_; }
 
@@ -119,6 +133,8 @@ private:
     float currentMaxSpeed_  = 80.f;   // px/s inicial (lento)
     float reactionDelay_    = 0.5f;   // Demora de reacción inicial (s)
     float reactionTimer_    = 0.f;
+    float baseLevel_        = 0.15f;  // Nivel base según perfil de dificultad
+    float rampDuration_     = 180.f;  // Segundos para llegar al máximo
 
     // Parámetros máximos (dificultad 1.0)
     static constexpr float MAX_SPEED_HARD   = 280.f;
