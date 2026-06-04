@@ -2,6 +2,7 @@
 #include "GameEntity.h"
 #include "Collidable.h"
 #include "Ball.h"
+#include "SpriteManager.h"
 #include <QPainter>
 #include <QKeyEvent>
 #include <QString>
@@ -90,13 +91,12 @@ private:
     // Animación
     float animTimer_    = 0.f;
     int   animFrame_    = 0;
-    static constexpr float ANIM_SPEED = 8.f;  // frames/s
+    SpriteManager::AnimState currentAnimState_ = SpriteManager::AnimState::IDLE;
 
     // Teclas activas
     bool keyUp_ = false, keyDown_ = false;
     bool keyLeft_ = false, keyRight_ = false;
-    bool keyShoot_ = false, keyPass_ = false;
 
     void applyMovement(float dt);
-    void drawPlayer(QPainter* p, bool withBall);
+    QString spriteKey() const;
 };

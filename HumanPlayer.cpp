@@ -1,15 +1,10 @@
 #include "HumanPlayer.h"
 #include "PhysicsEngine.h"
 #include "GameExceptions.h"
+#include "SpriteManager.h"
 #include <QPainter>
-#include <QKeyEvent>
 #include <Qt>
 #include <cmath>
-
-// ── Teclas de control ─────────────────────────────────────────────────────────
-// Jugador 1: WASD + F (tiro) + G (pase)
-// Jugador 2: Flechas + K (tiro) + L (pase)  [cuando sea el activo]
-// El jugador activo es el que tiene el balón o el más cerca de él.
 
 HumanPlayer::HumanPlayer(Vec2D pos, PlayerNumber number)
     : GameEntity(pos, 18.f)
@@ -18,21 +13,23 @@ HumanPlayer::HumanPlayer(Vec2D pos, PlayerNumber number)
     setZValue(5);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 void HumanPlayer::update(float dt) {
     if (!active) return;
 
+    // Animación
     animTimer_ += dt;
-    if (animTimer_ >= 1.f / ANIM_SPEED) {
+    float animSpeed = (velocity.lengthSq() > 100.f) ? 8.f : 3.f;
+    if (animTimer_ >= 1.f / animSpeed) {
         animTimer_ = 0.f;
-        animFrame_ = (animFrame_ + 1) % 4;
+        animFrame_ = (animFrame_ + 1) %
+            SpriteManager::instance().frameCount(spriteKey(), currentAnimState_);
     }
 
     if (isActive_) {
         applyMovement(dt);
     } else {
-        // Movimiento automático hacia posición de apoyo
-        Vec2D dir = idleTarget_ - position;
+        // Movimiento automático a posición de apoyo
+        Vec2D dir  = idleTarget_ - position;
         float dist = dir.length();
         if (dist > 5.f) {
             Vec2D desired = dir.normalized() * (maxSpeed_ * 0.6f);
@@ -40,23 +37,30 @@ void HumanPlayer::update(float dt) {
         } else {
             velocity = PhysicsEngine::applyFriction(velocity, 8.f, dt);
         }
-
-        Vec2D newPos = position + velocity * dt;
-        newPos = PhysicsEngine::clampToField(newPos, minX_, maxX_, minY_, maxY_);
+        Vec2D newPos = PhysicsEngine::clampToField(
+            position + velocity * dt, minX_, maxX_, minY_, maxY_);
         setPosition(newPos);
     }
 
-    // Si tiene el balón, moverlo con él
+    // Determinar estado de animación
+    if (isShooting_) {
+        currentAnimState_ = SpriteManager::AnimState::SHOOT;
+    } else if (velocity.lengthSq() > 400.f) {
+        currentAnimState_ = SpriteManager::AnimState::RUN;
+    } else {
+        currentAnimState_ = SpriteManager::AnimState::IDLE;
+    }
+
+    // Mover el balón con el jugador
     if (hasBall_ && heldBall_) {
-        Vec2D ballOffset = {0.f, -20.f}; // Balón delante del jugador
+        Vec2D ballOffset = {0.f, -20.f};
         heldBall_->setPosition(position + ballOffset);
     }
 
-    isShooting_ = false; // Reset cada frame
+    isShooting_ = false;
 }
 
 void HumanPlayer::applyMovement(float dt) {
-    // Construir dirección deseada desde input
     float dx = 0.f, dy = 0.f;
     if (keyLeft_)  dx -= 1.f;
     if (keyRight_) dx += 1.f;
@@ -67,44 +71,31 @@ void HumanPlayer::applyMovement(float dt) {
     if (inputDir.lengthSq() > 0.f) inputDir = inputDir.normalized();
 
     Vec2D desired = inputDir * maxSpeed_;
-
-    // Aceleración/desaceleración suave
-    Vec2D diff = desired - velocity;
+    Vec2D diff    = desired - velocity;
+    float rate    = (inputDir.lengthSq() > 0.f) ? accel_ : decel_;
+    float step    = rate * dt;
     float diffLen = diff.length();
 
-    float rate = (inputDir.lengthSq() > 0.f) ? accel_ : decel_;
-    float step = rate * dt;
+    velocity = (step >= diffLen) ? desired : velocity + diff.normalized() * step;
 
-    if (step >= diffLen) {
-        velocity = desired;
-    } else {
-        velocity = velocity + diff.normalized() * step;
-    }
-
-    Vec2D newPos = position + velocity * dt;
-    newPos = PhysicsEngine::clampToField(newPos, minX_, maxX_, minY_, maxY_);
+    Vec2D newPos = PhysicsEngine::clampToField(
+        position + velocity * dt, minX_, maxX_, minY_, maxY_);
     setPosition(newPos);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 void HumanPlayer::handleKeyPress(int key) {
     if (number_ == PlayerNumber::ONE) {
         if (key == Qt::Key_W) keyUp_    = true;
         if (key == Qt::Key_S) keyDown_  = true;
         if (key == Qt::Key_A) keyLeft_  = true;
         if (key == Qt::Key_D) keyRight_ = true;
-        if (key == Qt::Key_F && hasBall_ && isActive_) {
-            shoot(goalCenter_);
-        }
-        // El pase se gestiona desde Level2Scene (necesita referencia al compañero)
+        if (key == Qt::Key_F && hasBall_ && isActive_) shoot(goalCenter_);
     } else {
         if (key == Qt::Key_Up)    keyUp_    = true;
         if (key == Qt::Key_Down)  keyDown_  = true;
         if (key == Qt::Key_Left)  keyLeft_  = true;
         if (key == Qt::Key_Right) keyRight_ = true;
-        if (key == Qt::Key_K && hasBall_ && isActive_) {
-            shoot(goalCenter_);
-        }
+        if (key == Qt::Key_K && hasBall_ && isActive_) shoot(goalCenter_);
     }
 }
 
@@ -122,7 +113,6 @@ void HumanPlayer::handleKeyRelease(int key) {
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 void HumanPlayer::giveBall(Ball* ball) {
     if (!ball)
         throw InvalidGameStateException("giveBall: puntero nulo al balón.");
@@ -132,8 +122,8 @@ void HumanPlayer::giveBall(Ball* ball) {
 }
 
 Ball* HumanPlayer::releaseBall() {
-    hasBall_ = false;
-    Ball* b  = heldBall_;
+    hasBall_  = false;
+    Ball* b   = heldBall_;
     heldBall_ = nullptr;
     return b;
 }
@@ -151,82 +141,52 @@ void HumanPlayer::passToBuddy(HumanPlayer* buddy) {
     b->pass(buddy->getPosition(), 400.f);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 void HumanPlayer::setBounds(float minX, float maxX, float minY, float maxY) {
     minX_ = minX; maxX_ = maxX;
     minY_ = minY; maxY_ = maxY;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 void HumanPlayer::onCollision(Collidable* other, Vec2D normal) {
-    // Si choca con Tazmania: colisión elástica (el motor lo resuelve)
     (void)other; (void)normal;
-    // La velocidad se actualiza externamente desde Level2Scene
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// ── PAINT ─────────────────────────────────────────────────────────────────────
 void HumanPlayer::paint(QPainter* p, const QStyleOptionGraphicsItem*, QWidget*) {
     p->setRenderHint(QPainter::Antialiasing);
-    drawPlayer(p, hasBall_);
-}
+    p->setRenderHint(QPainter::SmoothPixmapTransform);
 
-void HumanPlayer::drawPlayer(QPainter* p, bool withBall) {
-    // Colores: J1 = azul cielo, J2 = verde lima (equipo humano)
-    QColor bodyColor = (number_ == PlayerNumber::ONE)
-                       ? QColor(40, 100, 220)
-                       : QColor(40, 180, 60);
-    QColor skinColor = QColor(255, 210, 170);
-    QColor shirtColor = bodyColor;
+    SpriteManager& sm = SpriteManager::instance();
 
-    // Sombra
-    p->setBrush(QColor(0,0,0,50));
-    p->setPen(Qt::NoPen);
-    p->drawEllipse(QPointF(2, 16), 12, 5);
+    // Tamaño del sprite en pantalla
+    QSize sprSize(72, 88);
 
-    // Piernas animadas
-    float legSwing = std::sin(animFrame_ * 1.57f) * 6.f;
-    p->setBrush(QColor(20, 30, 100));
-    p->setPen(Qt::NoPen);
-    p->drawRoundedRect(QRectF(-8 + legSwing, 10, 7, 16), 3, 3);
-    p->drawRoundedRect(QRectF(1  - legSwing, 10, 7, 16), 3, 3);
+    // Espejado: J2 (espejo) mira hacia la izquierda por defecto;
+    // si se mueve hacia la derecha, no espejamos
+    bool flipH = (velocity.x < -10.f);
 
-    // Cuerpo / camiseta
-    p->setBrush(shirtColor);
-    p->setPen(QPen(bodyColor.darker(130), 1));
-    p->drawRoundedRect(QRectF(-11, -4, 22, 18), 5, 5);
+    QPixmap frame = sm.getFrame(spriteKey(), currentAnimState_,
+                                animFrame_, sprSize, flipH);
 
-    // Número en camiseta
-    p->setPen(Qt::white);
-    p->setFont(QFont("Arial", 7, QFont::Bold));
-    p->drawText(QRectF(-6, 0, 12, 10), Qt::AlignCenter,
-                number_ == PlayerNumber::ONE ? "1" : "2");
+    // Centrar el sprite sobre la posición del jugador
+    p->drawPixmap(-sprSize.width() / 2, -sprSize.height() / 2, frame);
 
-    // Cabeza
-    p->setBrush(skinColor);
-    p->setPen(QPen(QColor(180,130,90), 1));
-    p->drawEllipse(QPointF(0, -14), 11, 11);
-
-    // Casco (color equipo)
-    p->setBrush(bodyColor.darker(120));
-    p->setPen(Qt::NoPen);
-    p->drawChord(QRectF(-11, -25, 22, 22), 0 * 16, 180 * 16);
-
-    // Ojos
-    p->setBrush(Qt::black);
-    p->drawEllipse(QPointF(-4, -15), 2, 2);
-    p->drawEllipse(QPointF(4,  -15), 2, 2);
-
-    // Indicador de jugador activo
+    // Indicador de jugador activo (círculo amarillo)
     if (isActive_) {
         p->setPen(QPen(Qt::yellow, 2));
         p->setBrush(Qt::NoBrush);
-        p->drawEllipse(QPointF(0, 0), collRadius + 2, collRadius + 2);
+        p->drawEllipse(QPointF(0, 0), collRadius + 3, collRadius + 3);
     }
 
-    // Si tiene el balón: dibuja mini-balón en la mano
-    if (withBall) {
-        p->setBrush(QColor(230, 110, 10));
-        p->setPen(QPen(Qt::black, 1));
-        p->drawEllipse(QPointF(14, -4), 6, 6);
-    }
+    // Número del jugador
+    p->setPen(Qt::white);
+    p->setFont(QFont("Arial", 7, QFont::Bold));
+    QRectF numRect(-8, sprSize.height()/2 - 4, 16, 10);
+    p->setBrush(QColor(0, 0, 0, 140));
+    p->drawRoundedRect(numRect, 3, 3);
+    p->drawText(numRect, Qt::AlignCenter,
+                number_ == PlayerNumber::ONE ? "J1" : "J2");
+}
+
+QString HumanPlayer::spriteKey() const {
+    return (number_ == PlayerNumber::ONE) ? "j1" : "j2";
 }
