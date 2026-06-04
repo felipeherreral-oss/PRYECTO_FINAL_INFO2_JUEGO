@@ -1,6 +1,6 @@
 #include "Ball.h"
+#include "SpriteManager.h"
 #include <QPainter>
-#include <QBrush>
 #include <cmath>
 
 Ball::Ball(Vec2D startPos)
@@ -23,27 +23,10 @@ void Ball::update(float dt) {
         velocity = PhysicsEngine::verletVelocity(velocity, accel_, dt);
         velocity = PhysicsEngine::applyFriction(velocity, FRICTION, dt);
 
-        // Rebotar en los bordes del campo
-        if (position.x < minX_ + BALL_RADIUS) {
-            position.x = minX_ + BALL_RADIUS;
-            velocity = PhysicsEngine::reflect(velocity, {1.f, 0.f});
-            velocity *= 0.6f; // Pérdida de energía en rebote
-        }
-        if (position.x > maxX_ - BALL_RADIUS) {
-            position.x = maxX_ - BALL_RADIUS;
-            velocity = PhysicsEngine::reflect(velocity, {-1.f, 0.f});
-            velocity *= 0.6f;
-        }
-        if (position.y < minY_ + BALL_RADIUS) {
-            position.y = minY_ + BALL_RADIUS;
-            velocity = PhysicsEngine::reflect(velocity, {0.f, 1.f});
-            velocity *= 0.6f;
-        }
-        if (position.y > maxY_ - BALL_RADIUS) {
-            position.y = maxY_ - BALL_RADIUS;
-            velocity = PhysicsEngine::reflect(velocity, {0.f, -1.f});
-            velocity *= 0.6f;
-        }
+        // Nota: NO se rebota en los bordes. Si el balón cruza los límites del
+        // terreno, la escena (checkOutOfBounds) lo detecta y lo reubica en el
+        // centro para que ambos equipos luchen por él. Así la escena es la única
+        // autoridad sobre el "fuera de juego".
 
         // Si la velocidad es muy baja, detener
         if (velocity.lengthSq() < 1.f) {
@@ -77,27 +60,22 @@ void Ball::update(float dt) {
 
 void Ball::paint(QPainter* p, const QStyleOptionGraphicsItem*, QWidget*) {
     p->setRenderHint(QPainter::Antialiasing);
+    p->setRenderHint(QPainter::SmoothPixmapTransform);
 
-    // Sombra
-    p->setBrush(QColor(0, 0, 0, 60));
-    p->setPen(Qt::NoPen);
-    p->drawEllipse(QPointF(2, 3), BALL_RADIUS - 1, BALL_RADIUS - 1);
+    int d = int(BALL_RADIUS * 2.4f);
+    QPixmap ballPx = SpriteManager::instance().getBall(QSize(d, d));
 
-    // Balón naranja con hexágonos negros (balonmano)
-    QRadialGradient grad(-3, -3, BALL_RADIUS * 1.5f);
-    grad.setColorAt(0.0, QColor(255, 160, 40));
-    grad.setColorAt(0.6, QColor(230, 110, 10));
-    grad.setColorAt(1.0, QColor(180, 70, 0));
-    p->setBrush(grad);
-    p->setPen(QPen(Qt::black, 1));
-    p->drawEllipse(QPointF(0, 0), BALL_RADIUS, BALL_RADIUS);
-
-    // Líneas decorativas del balón
-    p->setPen(QPen(QColor(80, 40, 0), 1.2f));
-    p->drawArc(QRectF(-BALL_RADIUS * 0.5f, -BALL_RADIUS, BALL_RADIUS, BALL_RADIUS * 2),
-               30 * 16, 120 * 16);
-    p->drawArc(QRectF(-BALL_RADIUS * 0.5f, -BALL_RADIUS, BALL_RADIUS, BALL_RADIUS * 2),
-               210 * 16, 120 * 16);
+    if (!ballPx.isNull()) {
+        p->drawPixmap(-d/2, -d/2, ballPx);
+    } else {
+        // Fallback visual si el sprite no cargó
+        QRadialGradient grad(-3, -3, BALL_RADIUS * 1.5f);
+        grad.setColorAt(0.0, QColor(255, 130, 60));
+        grad.setColorAt(1.0, QColor(160, 60, 0));
+        p->setBrush(grad);
+        p->setPen(QPen(Qt::black, 1));
+        p->drawEllipse(QPointF(0, 0), BALL_RADIUS, BALL_RADIUS);
+    }
 }
 
 void Ball::shoot(Vec2D targetPos, float speed) {
