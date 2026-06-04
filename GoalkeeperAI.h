@@ -3,28 +3,35 @@
 #include "Collidable.h"
 #include "AIAgent.h"
 #include "Ball.h"
+#include "SpriteManager.h"
 #include <QPainter>
+#include <memory>
 
 /**
  * @brief Arquero controlado por IA con aprendizaje adaptativo.
  *
  *  Herencia propia: GoalkeeperAI hereda de GameEntity (no de QGraphicsItem directo).
- *  El arquero solo se mueve lateralmente dentro del área de portería.
- *  Usa AIAgent para percepción + razonamiento + aprendizaje.
+ *
+ *  En esta vista cenital los arcos están a izquierda/derecha, así que la boca
+ *  del arco es VERTICAL. El arquero mantiene una X fija (justo delante de su
+ *  línea de gol) y se mueve VERTICALMENTE siguiendo la posición/predicción del
+ *  balón para atajar los tiros.
+ *
+ *  Usa AIAgent para percepción + dificultad (velocidad) + aprendizaje por zona.
  */
 class GoalkeeperAI : public GameEntity, public Collidable {
 public:
     enum class Team { HUMAN, ENEMY };
 
     /**
-     * @param pos          Posición inicial (centro del arco).
+     * @param pos          Posición inicial (X fija del arquero, Y centro del arco).
      * @param team         Qué arco defiende.
-     * @param goalLeft     X del poste izquierdo.
-     * @param goalRight    X del poste derecho.
-     * @param fieldW/H     Dimensiones del campo.
+     * @param goalTopY     Y del borde superior de la boca del arco.
+     * @param goalBotY     Y del borde inferior de la boca del arco.
+     * @param fieldW/H     Dimensiones del campo jugable.
      */
     GoalkeeperAI(Vec2D pos, Team team,
-                 float goalLeft, float goalRight,
+                 float goalTopY, float goalBotY,
                  float fieldW, float fieldH);
 
     // ── GameEntity ────────────────────────────────────────────────────────────
@@ -43,27 +50,27 @@ public:
                   Vec2D shooterPos, bool isShooting, float dt);
 
     // Aprendizaje cuando entra un gol
-    void notifyGoalScored(float ballImpactX);
+    void notifyGoalScored(float ballImpactY);
 
     // Aprendizaje cuando para un tiro
     void notifySave();
 
     void updateDifficulty(float gameTimeSeconds);
+    AIAgent* getAgent() { return agent_.get(); }
 
     float getDifficulty() const { return agent_->getDifficultyLevel(); }
 
     Team getTeam() const { return team_; }
 
-    // Posición del poste izquierdo/derecho del arco
-    float getGoalLeft()  const { return goalLeft_; }
-    float getGoalRight() const { return goalRight_; }
-    float getGoalY()     const { return position.y; }
+    float getGoalTop()  const { return goalTop_; }
+    float getGoalBot()  const { return goalBot_; }
+    float getFixedX()   const { return fixedX_; }
 
 private:
     Team   team_;
-    float  goalLeft_, goalRight_;
-    float  goalCenterX_;
-    float  homeY_;             // Y fija del arquero (no se mueve verticalmente)
+    float  fixedX_;            // X fija del arquero (no se mueve horizontalmente)
+    float  goalTop_, goalBot_; // límites verticales de la boca del arco
+    float  goalCenterY_;
 
     std::unique_ptr<AIAgent> agent_;
 
@@ -72,7 +79,5 @@ private:
     int   animFrame_ = 0;
     bool  isSaving_  = false;
     float saveTimer_ = 0.f;
-
-    void drawGoalkeeper(QPainter* p);
-    void drawEnemyGoalkeeper(QPainter* p);
+    SpriteManager::AnimState currentAnim_ = SpriteManager::AnimState::IDLE;
 };
