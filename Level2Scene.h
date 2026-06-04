@@ -19,33 +19,47 @@
  *
  *  Contiene:
  *  - Equipo humano: 2 jugadores de campo + 1 arquero (IA)
- *  - Equipo rival (Looney Tunes): 2 defensas de campo + 1 arquero (IA)
+ *  - Equipo rival (Looney Tunes): 2 jugadores de campo + 1 arquero (IA)
  *  - 1 balón
  *  - HUD y GameManager
  *
  *  STL containers:
- *  - std::vector<EnemyPlayer*>  para defensas rivales
+ *  - std::vector<EnemyPlayer*>  para jugadores rivales
  *  - std::vector<HumanPlayer*>  para jugadores humanos
  *
- *  Detecta colisiones, coordina la IA, y administra el flujo del partido.
+ *  La geometría del campo (PLAY_*) está medida directamente sobre la imagen
+ *  de cancha (zona amarilla jugable). Los arcos quedan exactamente sobre las
+ *  líneas de gol visibles y los arqueros dentro del campo.
  */
 class Level2Scene : public QGraphicsScene {
     Q_OBJECT
 
 public:
-    // Dimensiones del campo (vista cenital)
-    static constexpr float FIELD_W = 1100.f;
-    static constexpr float FIELD_H = 650.f;
-    static constexpr float FIELD_MARGIN = 50.f;
+    // ── Tamaño total de la escena (la imagen de cancha se estira a este tamaño) ──
+    static constexpr float SCENE_W = 1200.f;
+    static constexpr float SCENE_H = 750.f;
 
-    // Arcos
-    static constexpr float GOAL_WIDTH  = 100.f;
-    static constexpr float GOAL_DEPTH  = 30.f;
-    static constexpr float HUMAN_GOAL_X  = FIELD_MARGIN;              // Arco humano (izquierda)
-    static constexpr float ENEMY_GOAL_X  = FIELD_MARGIN + FIELD_W;   // Arco rival (derecha)
-    static constexpr float GOAL_Y_CENTER = FIELD_MARGIN + FIELD_H * 0.5f;
+    // ── Zona amarilla jugable (coordenadas de escena, medidas sobre la imagen) ──
+    static constexpr float PLAY_LEFT   = 245.f;   // línea de gol izquierda (arco humano)
+    static constexpr float PLAY_RIGHT  = 958.f;   // línea de gol derecha   (arco rival)
+    static constexpr float PLAY_TOP    = 152.f;
+    static constexpr float PLAY_BOTTOM = 586.f;
+    static constexpr float PLAY_W = PLAY_RIGHT - PLAY_LEFT;
+    static constexpr float PLAY_H = PLAY_BOTTOM - PLAY_TOP;
+    static constexpr float PLAY_CX = (PLAY_LEFT + PLAY_RIGHT) * 0.5f;
+    static constexpr float PLAY_CY = (PLAY_TOP + PLAY_BOTTOM) * 0.5f;
 
-    explicit Level2Scene(QObject* parent = nullptr);
+    // ── Arcos (la boca del arco es vertical en esta vista cenital) ──────────────
+    static constexpr float GOAL_HALF     = 92.f;            // media altura de la boca
+    static constexpr float GOAL_Y_CENTER = PLAY_CY;
+    static constexpr float GOAL_TOP      = GOAL_Y_CENTER - GOAL_HALF;
+    static constexpr float GOAL_BOT      = GOAL_Y_CENTER + GOAL_HALF;
+
+    static constexpr float HUMAN_GOAL_X  = PLAY_LEFT;       // arco humano (izquierda)
+    static constexpr float ENEMY_GOAL_X  = PLAY_RIGHT;      // arco rival  (derecha)
+    static constexpr float GK_INSET      = 26.f;            // qué tan adentro está el arquero
+
+    explicit Level2Scene(QObject* parent = nullptr, int difficultyPreset = 1);
     ~Level2Scene() override = default;
 
     // ── Input de teclado ──────────────────────────────────────────────────────
@@ -71,7 +85,7 @@ private:
     std::unique_ptr<Ball>          ball_;
     std::vector<HumanPlayer*>      humanPlayers_;     // 2 jugadores humanos (raw ptr, owned by scene)
     GoalkeeperAI*                  humanGoalkeeper_;  // Arquero humano (raw ptr, owned by scene)
-    std::vector<EnemyPlayer*>      enemyPlayers_;     // 2 defensas rivales
+    std::vector<EnemyPlayer*>      enemyPlayers_;     // 2 jugadores rivales
     GoalkeeperAI*                  enemyGoalkeeper_;  // Arquero rival
     HUD*                           hud_;
 
@@ -81,9 +95,13 @@ private:
     float   gameTimeAccum_ = 0.f;
 
     // ── Estado ────────────────────────────────────────────────────────────────
-    int   activePlayerIdx_ = 0;    // Índice en humanPlayers_ del jugador controlado
-    bool  enemyHasBall_    = false;
-    float enemyBallTimer_  = 0.f;  // Timer para que la IA decida cuándo lanzar
+    int   activePlayerIdx_  = 0;    // Índice en humanPlayers_ del jugador controlado
+    int   difficultyPreset_ = 1;    // 0 = Fácil, 1 = Normal, 2 = Difícil
+    float enemyAggro_       = 1.f;  // Multiplicador de velocidad ofensiva rival
+    bool  ballShotByHuman_  = false;// Quién realizó el último tiro (para bloqueos)
+
+    // Coordinación ofensiva rival
+    float enemyDecisionTimer_ = 1.2f;
 
     // ── Inicialización ────────────────────────────────────────────────────────
     void setupField();
@@ -91,15 +109,18 @@ private:
     void setupBall();
     void setupHUD();
     void connectSignals();
+    void applyDifficultyPreset();
 
     // ── Lógica del juego ──────────────────────────────────────────────────────
     void updateGame(float dt);
-    void updatePhysics(float dt);
     void checkCollisions();
     void checkGoals();
     void checkBallPickup();
+    void checkOutOfBounds();
     void updateAI(float dt);
-    void handleEnemyBallPossession(float dt);
+    void runEnemyOffense(EnemyPlayer* holder, float dt);
+    void runEnemyLooseChase(float dt);
+    void updateHumanSupport();
     void switchActivePlayer();
     void doKickoff(bool humanKickoff);
     void resetPositions();
@@ -111,10 +132,12 @@ private:
     void drawBackground();
 
     // ── Utilidades ────────────────────────────────────────────────────────────
-    HumanPlayer* getActivePlayer();
-    HumanPlayer* getInactivePlayer();
-    bool ballInHumanGoal() const;
-    bool ballInEnemyGoal() const;
+    HumanPlayer*  getActivePlayer();
+    HumanPlayer*  getInactivePlayer();
+    HumanPlayer*  humanHolder();
+    EnemyPlayer*  enemyHolder();
+    EnemyPlayer*  nearestEnemyTo(Vec2D p);
+    bool          ballInsideGoalMouth() const;
 
     static constexpr int LOOP_INTERVAL_MS = 16;  // ~60 FPS
 };
