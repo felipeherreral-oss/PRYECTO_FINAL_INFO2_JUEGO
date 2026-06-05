@@ -1,0 +1,29 @@
+<RCC>
+    <qresource prefix="/">
+        <file>images/cancha_Looney_Tunes.png</file>
+        <file>images/jugador_humano_como_Gidsel.png</file>
+        <file>images/Matias_Gidsel_espejo.png</file>
+        <file>images/Arquero_humano.png</file>
+        <file>images/Demonio_Tasmania.png</file>
+        <file>images/Tasmania_Girando.png</file>
+        <file>images/Tasmania_Mareado.png</file>
+        <file>images/Bugs_Bunny.png</file>
+        <file>images/Pato_Lucas_Arquero.png</file>
+        <file>images/tasmania_izquierda_sin_balon.png</file>
+        <file>images/tasmania_izquierda_con_balon.png</file>
+        <file>images/Bugs_Bunny_lado_izquierdo_sin_balon.png</file>
+        <file>images/Bugs_Bunny_lado_izquierdo.png</file>
+        <file>images/Balon.png</file>
+        <file>images/j1_run0.png</file>
+        <file>images/j1_run1.png</file>
+        <file>images/j2_run0.png</file>
+        <file>images/j2_run1.png</file>
+        <file>images/gkh_ready.png</file>
+        <file>images/gkh_save.png</file>
+        <file>sounds/gol_anotado.wav</file>
+        <file>sounds/silbato_inicial_final.wav</file>
+        <file>sounds/giro_tasmania.wav</file>
+        <file>sounds/tasmania_despues_del_giro.wav</file>
+        <file>sounds/choque_contra_tasmania.wav</file>
+    </qresource>
+</RCC>
