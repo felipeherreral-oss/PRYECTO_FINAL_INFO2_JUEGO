@@ -85,6 +85,19 @@ Vec2D PhysicsEngine::reflect(Vec2D vel, Vec2D normal) {
     return vel - normal * (2.f * dot);
 }
 
+Vec2D PhysicsEngine::bounceOffSpinner(Vec2D vIn, Vec2D normal, float spinKick) {
+    // n̂ debe apuntar desde el tornado hacia el cuerpo entrante (dir. de rebote).
+    Vec2D n = normal.normalized();
+
+    // 1) Reflexión especular con restitución e = 1:
+    //        v_refl = v - 2 (v · n̂) n̂
+    Vec2D vRefl = vIn - n * (2.f * vIn.dot(n));
+
+    // 2) Impulso radial de expulsión del giro:
+    //        v_out = v_refl + n̂ · vKick
+    return vRefl + n * spinKick;
+}
+
 Vec2D PhysicsEngine::clampToField(Vec2D pos, float minX, float maxX,
                                    float minY, float maxY) {
     Vec2D clamped = pos;

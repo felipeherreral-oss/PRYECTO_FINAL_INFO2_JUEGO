@@ -1,6 +1,7 @@
 #include "EnemyPlayer.h"
 #include "Ball.h"
 #include "SpriteManager.h"
+#include "AudioManager.h"
 #include <QPainter>
 #include <cmath>
 
@@ -31,6 +32,7 @@ void EnemyPlayer::update(float dt) {
             isDizzy_    = true;
             dizzyTimer_ = DIZZY_DURATION;
             currentAnim_ = SpriteManager::AnimState::DIZZY;
+            AudioManager::instance().playTazDizzy();   // terminó de girar → mareado
         } else {
             currentAnim_ = SpriteManager::AnimState::SPIN;
         }
@@ -96,6 +98,7 @@ void EnemyPlayer::updateTazmania(Vec2D ballPos, Vec2D humanPos, float dt) {
                         std::sin(orbitTime_ * 7.3f) * 2.f; // pseudo-random
         currentAnim_ = SpriteManager::AnimState::SPIN;
         state_ = EnemyState::INTERCEPTING;
+        AudioManager::instance().playTazSpin();   // empieza a girar (tornado)
         return;
     }
 

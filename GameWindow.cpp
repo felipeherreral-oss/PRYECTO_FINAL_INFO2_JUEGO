@@ -1,5 +1,6 @@
 #include "GameWindow.h"
 #include "GameExceptions.h"
+#include "AudioManager.h"
 #include <QGraphicsView>
 #include <QGraphicsScene>
 #include <QGraphicsTextItem>
@@ -19,6 +20,9 @@ GameWindow::GameWindow(QWidget* parent)
 {
     setWindowTitle("Estadio Intergalactico - Balonmano Nivel 2");
     resize(1200, 750);
+
+    // Precargar los efectos de sonido (la QApplication ya existe en este punto)
+    AudioManager::instance().loadAll();
 
     view_ = new QGraphicsView(this);
     view_->setRenderHints(QPainter::Antialiasing |
@@ -104,7 +108,7 @@ void GameWindow::showStartScreen() {
                                         600, 350, 11, QColor(220, 240, 255), false);
     addText("La IA rival aprende de tus jugadas y se vuelve mas dificil!",
                                         600, 372, 11, QColor(255, 150, 150), false);
-    addText("3 vs 3  |  Arqueros controlados por IA  |  Vista cenital",
+    addText("3 vs 3  |  Arqueros controlados por IA",
                                         600, 394, 10, QColor(180, 255, 180), false);
     addText("Equipos: lado IZQUIERDO = Humanos  |  lado DERECHO = Looney Tunes",
                                         600, 416, 10, QColor(180, 255, 180), false);
@@ -121,14 +125,14 @@ void GameWindow::showStartScreen() {
         addText(names[i], bx[i] + 80.f, 458, 11,
                 sel ? QColor(255, 230, 120) : QColor(200, 220, 255), sel);
     }
-    addText("Elige dificultad con [1] [2] [3]", 600, 498, 10,
-            QColor(255, 220, 80), false);
+  //  addText("Elige dificultad con [1] [2] [3]", 600, 498, 10,
+    //        QColor(255, 220, 80), false);
 
     // Boton iniciar
     startScene->addRect(400, 540, 400, 60,
         QPen(QColor(100, 255, 100, 200), 2),
         QBrush(QColor(15, 70, 15, 230)));
-    addText("PRESIONA ENTER O ESPACIO PARA INICIAR",
+    addText("PRESIONA ENTER PARA INICIAR",
             600, 558, 11, QColor(100, 255, 100));
 
     view_->setScene(startScene);
@@ -200,7 +204,7 @@ void GameWindow::showEndScreen(bool humanWon, int hGoals, int eGoals) {
         ? "Gidsel y compania demostraron que los humanos\npueden superar a los Looney Tunes!"
         : (hGoals == eGoals
             ? "Un duelo parejo en el Estadio Intergalactico.\n¿Quieres la revancha?"
-            : "Los Looney Tunes aprendieron de tus jugadas\ny te derrotaron con fisica caricaturesca!");
+            : "Los Looney Tunes \nte derrotaron!");
     addText(msg, 600, 315, 13, QColor(200, 230, 255), false);
 
     addText("¿Que quieres hacer?", 600, 430, 14, QColor(255, 220, 80));
@@ -209,12 +213,12 @@ void GameWindow::showEndScreen(bool humanWon, int hGoals, int eGoals) {
     endScene->addRect(300, 480, 270, 60,
         QPen(QColor(100, 255, 100, 220), 2), QBrush(QColor(15, 70, 15, 230)));
     addText("SEGUIR JUGANDO", 435, 492, 14, QColor(120, 255, 120));
-    addText("[ENTER] o [R]", 435, 516, 10, QColor(180, 255, 180), false);
+    addText("[ENTER]", 435, 516, 10, QColor(180, 255, 180), false);
 
     endScene->addRect(630, 480, 270, 60,
         QPen(QColor(255, 100, 100, 220), 2), QBrush(QColor(70, 15, 15, 230)));
     addText("SALIR DEL JUEGO", 765, 492, 14, QColor(255, 120, 120));
-    addText("[ESC] o [Q]", 765, 516, 10, QColor(255, 180, 180), false);
+    addText("[ESC]", 765, 516, 10, QColor(255, 180, 180), false);
 
     QGraphicsScene* old = view_->scene();
     view_->setScene(endScene);

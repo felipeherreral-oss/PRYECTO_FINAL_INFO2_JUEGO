@@ -1,5 +1,6 @@
 #include "Level2Scene.h"
 #include "SpriteManager.h"
+#include "AudioManager.h"
 #include <QGraphicsPixmapItem>
 #include <QGraphicsTextItem>
 #include <QGraphicsLineItem>
@@ -39,6 +40,10 @@ Level2Scene::Level2Scene(QObject* parent, int difficultyPreset)
 
         lastTime_ = QDateTime::currentMSecsSinceEpoch();
         manager_->startMatch();
+
+        // Silbato inicial del partido
+        AudioManager::instance().loadAll();
+        AudioManager::instance().playWhistle();
 
     } catch (const GameException& e) {
         qWarning("Error al inicializar Level2Scene: %s", e.what());
@@ -431,10 +436,36 @@ void Level2Scene::checkCollisions() {
             Vec2D normal = (ep->getPosition() - hp->getPosition()).normalized();
 
             if (ep->getType() == EnemyPlayer::EnemyType::TAZMANIA) {
-                resolveElasticCollision(hp, ep);
-                if (hp->hasBall()) {
-                    Ball* b = hp->releaseBall();
-                    if (b) b->release(normal * 200.f);
+                if (ep->isSpinning()) {
+                    // ── Rebote contra el TORNADO de Tazmania ─────────────────
+                    // n̂ apunta desde Tazmania hacia el humano (dirección de rebote).
+                    Vec2D bounceN = (hp->getPosition() - ep->getPosition()).normalized();
+                    const float spinKick = 320.f;   // impulso de expulsión del giro
+
+                    //  v_out = [v - 2(v·n̂)n̂] + n̂·vKick   (reflexión elástica + expulsión)
+                    Vec2D vOut = PhysicsEngine::bounceOffSpinner(
+                        hp->getVelocity(), bounceN, spinKick);
+                    hp->setVelocity(vOut);
+
+                    // Separar al humano para que no quede atrapado dentro del tornado
+                    float overlap = (hp->getRadius() + ep->getRadius()) -
+                                    hp->getPosition().distanceTo(ep->getPosition());
+                    if (overlap > 0.f)
+                        hp->setPosition(hp->getPosition() + bounceN * (overlap + 2.f));
+
+                    // Si llevaba el balón, lo pierde por el impacto
+                    if (hp->hasBall()) {
+                        Ball* b = hp->releaseBall();
+                        if (b) b->release(bounceN * 240.f);
+                    }
+                    AudioManager::instance().playTazHit();
+                } else {
+                    // Tazmania quieta/orbitando: colisión elástica normal
+                    resolveElasticCollision(hp, ep);
+                    if (hp->hasBall()) {
+                        Ball* b = hp->releaseBall();
+                        if (b) b->release(normal * 200.f);
+                    }
                 }
             } else {
                 Vec2D push = normal * 150.f;
@@ -456,7 +487,7 @@ void Level2Scene::checkCollisions() {
             Vec2D n = (ball_->getPosition() - humanGoalkeeper_->getPosition()).normalized();
             ball_->onCollision(humanGoalkeeper_, n);
             humanGoalkeeper_->notifySave();
-            hud_->showMessage("¡GRAN ATAJADA!", QColor(80, 200, 255), 1.2f);
+            hud_->showMessage("¡ATAJADA!", QColor(80, 200, 255), 1.2f);
         }
     }
 
@@ -550,6 +581,7 @@ void Level2Scene::checkGoals() {
         manager_->registerHumanGoal();
         hud_->setScore(manager_->getHumanGoals(), manager_->getEnemyGoals());
         hud_->showMessage("¡¡GOL!!", Qt::yellow, 2.5f);
+        AudioManager::instance().playGoal();
         return;
     }
 
@@ -559,6 +591,7 @@ void Level2Scene::checkGoals() {
         manager_->registerEnemyGoal();
         hud_->setScore(manager_->getHumanGoals(), manager_->getEnemyGoals());
         hud_->showMessage("¡Gol rival!", QColor(255, 90, 90), 2.5f);
+        AudioManager::instance().playGoal();
         return;
     }
 }
@@ -630,6 +663,7 @@ void Level2Scene::onGoalByEnemy() { doKickoff(true);  }  // saca el humano
 
 void Level2Scene::onGameOver(int h, int e) {
     loopTimer_->stop();
+    AudioManager::instance().playWhistle();   // silbato final del partido
     QString result = (h > e) ? "¡GANASTE!" : (h == e) ? "¡EMPATE!" : "¡PERDISTE!";
     QColor  col    = (h > e) ? Qt::green   : (h == e) ? Qt::yellow  : QColor(255, 90, 90);
     hud_->showMessage(result + QString("\n%1 - %2").arg(h).arg(e), col, 999.f);
