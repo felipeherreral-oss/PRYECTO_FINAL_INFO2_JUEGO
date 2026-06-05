@@ -59,6 +59,17 @@ void SpriteManager::loadAll() {
         return true;
     };
 
+    // Carga un PNG ya recortado (con transparencia) y lo agrega como un frame.
+    // No requiere QRect ni removeBackground: el archivo ya viene limpio.
+    auto addFile = [&](const QString& character, AnimState st, const QString& path) {
+        QPixmap px(path);
+        if (px.isNull()) {
+            qWarning("SpriteManager: falta '%s'", path.toStdString().c_str());
+            return;
+        }
+        frames_[makeKey(character, st)].push_back(px);
+    };
+
     // ── Cancha ────────────────────────────────────────────────────────────────
     {
         QPixmap f(":/images/cancha_Looney_Tunes.png");
@@ -72,74 +83,44 @@ void SpriteManager::loadAll() {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // J1 — jugador_humano_como_Gidsel.png (1407×768)
+    // J1 — sprite_jugador1_corriendo (pelo negro). Frames ya recortados.
+    //   Mira a la DERECHA por defecto (los humanos atacan hacia la derecha).
     // ─────────────────────────────────────────────────────────────────────────
     {
-        if (!tryLoad("j1_sheet", ":/images/jugador_humano_como_Gidsel.png")) { loaded_ = true; return; }
-        QPixmap& sh = sheets_["j1_sheet"];
-        addFrames(makeKey("j1", AnimState::SHOOT), sh, {
-            {28,  21, 249, 369},
-            {1021, 21, 345, 369},
-        });
-        addFrames(makeKey("j1", AnimState::RUN), sh, {
-            {293,  21, 236, 369},
-            {555,  21, 443, 369},
-            {220, 430,1152, 325},
-        });
-        addFrames(makeKey("j1", AnimState::IDLE), sh, {
-            {50, 430, 131, 325},
-        });
-        addFrames(makeKey("j1", AnimState::DEFEND), sh, {
-            {28,  21, 249, 369},
-            {293, 21, 236, 369},
-        });
+        addFile("j1", AnimState::RUN,    ":/images/j1_run0.png");
+        addFile("j1", AnimState::RUN,    ":/images/j1_run1.png");
+        addFile("j1", AnimState::IDLE,   ":/images/j1_run0.png");
+        addFile("j1", AnimState::SHOOT,  ":/images/j1_run1.png");
+        addFile("j1", AnimState::SHOOT,  ":/images/j1_run0.png");
+        addFile("j1", AnimState::DEFEND, ":/images/j1_run0.png");
+        addFile("j1", AnimState::DEFEND, ":/images/j1_run1.png");
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // J2 — Matias_Gidsel_espejo.png (1407×768)
+    // J2 — sprite_jugador2_corriendo (pelo rubio). Frames ya recortados.
+    //   Mira a la DERECHA por defecto.
     // ─────────────────────────────────────────────────────────────────────────
     {
-        if (!tryLoad("j2_sheet", ":/images/Matias_Gidsel_espejo.png")) { loaded_ = true; return; }
-        QPixmap& sh = sheets_["j2_sheet"];
-        addFrames(makeKey("j2", AnimState::SHOOT), sh, {
-            {28,  21, 247, 369},
-            {1021, 21, 344, 369},
-        });
-        addFrames(makeKey("j2", AnimState::RUN), sh, {
-            {293,  21, 236, 369},
-            {555,  21, 443, 369},
-            {217, 430,1154, 325},
-        });
-        addFrames(makeKey("j2", AnimState::IDLE), sh, {
-            {52, 430, 127, 325},
-        });
-        addFrames(makeKey("j2", AnimState::DEFEND), sh, {
-            {28,  21, 247, 369},
-            {293, 21, 236, 369},
-        });
+        addFile("j2", AnimState::RUN,    ":/images/j2_run0.png");
+        addFile("j2", AnimState::RUN,    ":/images/j2_run1.png");
+        addFile("j2", AnimState::IDLE,   ":/images/j2_run0.png");
+        addFile("j2", AnimState::SHOOT,  ":/images/j2_run1.png");
+        addFile("j2", AnimState::SHOOT,  ":/images/j2_run0.png");
+        addFile("j2", AnimState::DEFEND, ":/images/j2_run0.png");
+        addFile("j2", AnimState::DEFEND, ":/images/j2_run1.png");
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // ARQUERO HUMANO — Arquero_humano.png (896×1183)
+    // ARQUERO HUMANO — Arquero_2_sprites (negro). Frames ya recortados.
+    //   F0 = listo/parado, F1 = estirada/atajada. Mira a la DERECHA.
     // ─────────────────────────────────────────────────────────────────────────
     {
-        if (!tryLoad("gk_human_sheet", ":/images/Arquero_humano.png")) { loaded_ = true; return; }
-        QPixmap& sh = sheets_["gk_human_sheet"];
-        addFrames(makeKey("gk_human", AnimState::IDLE), sh, {
-            {21, 611, 122, 563},
-        });
-        addFrames(makeKey("gk_human", AnimState::SAVE), sh, {
-            {163, 611, 707, 563},
-            {19,  30,  846, 571},
-        });
-        addFrames(makeKey("gk_human", AnimState::RUN), sh, {
-            {350, 30, 329, 571},
-            {679, 30, 217, 571},
-        });
-        addFrames(makeKey("gk_human", AnimState::SHOOT), sh, {
-            {11,  30, 339, 571},
-            {350, 30, 329, 571},
-        });
+        addFile("gk_human", AnimState::IDLE,  ":/images/gkh_ready.png");
+        addFile("gk_human", AnimState::SAVE,  ":/images/gkh_save.png");
+        addFile("gk_human", AnimState::SAVE,  ":/images/gkh_ready.png");
+        addFile("gk_human", AnimState::RUN,   ":/images/gkh_ready.png");
+        addFile("gk_human", AnimState::RUN,   ":/images/gkh_save.png");
+        addFile("gk_human", AnimState::SHOOT, ":/images/gkh_ready.png");
     }
 
     // ─────────────────────────────────────────────────────────────────────────

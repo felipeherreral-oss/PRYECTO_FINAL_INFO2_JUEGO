@@ -236,6 +236,9 @@ void Level2Scene::updateGame(float dt) {
     // 4. IA (arqueros + rivales)
     updateAI(dt);
 
+    // 4b. Nadie de campo puede entrar a la zona azul (área de arco)
+    enforceGoalAreas();
+
     // 5. Colisiones
     checkCollisions();
 
@@ -580,6 +583,37 @@ void Level2Scene::checkOutOfBounds() {
         ball_->release({0.f, 0.f});
         enemyDecisionTimer_ = 1.0f;
         hud_->showMessage("¡Balón al centro!", QColor(220, 220, 220), 1.0f);
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ZONA AZUL (área de arco): empuja a los jugadores de campo fuera del semicírculo
+// ─────────────────────────────────────────────────────────────────────────────
+void Level2Scene::enforceGoalAreas() {
+    const Vec2D leftGoal  = {HUMAN_GOAL_X, GOAL_Y_CENTER};
+    const Vec2D rightGoal = {ENEMY_GOAL_X, GOAL_Y_CENTER};
+
+    auto pushOut = [](GameEntity* e, Vec2D center, float radius) {
+        Vec2D d = e->getPosition() - center;
+        float dist = d.length();
+        if (dist < radius) {
+            Vec2D dir = (dist > 1e-3f) ? d.normalized() : Vec2D{1.f, 0.f};
+            e->setPosition(center + dir * radius);
+            // Anular la componente de velocidad que entra al área
+            Vec2D v = e->getVelocity();
+            float vn = v.dot(dir);
+            if (vn < 0.f) e->setVelocity(v - dir * vn);
+        }
+    };
+
+    // Sólo jugadores de CAMPO (los arqueros sí pueden estar dentro del área)
+    for (auto* hp : humanPlayers_) {
+        pushOut(hp, leftGoal,  AREA_RADIUS);
+        pushOut(hp, rightGoal, AREA_RADIUS);
+    }
+    for (auto* ep : enemyPlayers_) {
+        pushOut(ep, leftGoal,  AREA_RADIUS);
+        pushOut(ep, rightGoal, AREA_RADIUS);
     }
 }
 

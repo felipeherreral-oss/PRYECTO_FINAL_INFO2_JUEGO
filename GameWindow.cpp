@@ -99,15 +99,30 @@ void GameWindow::showStartScreen() {
                                         600, 272, 11, QColor(220, 240, 255), false);
     addText("[TAB] Cambiar jugador activo (circulo amarillo)",
                                         600, 296, 11, QColor(220, 240, 255), false);
-    addText("-- OBJETIVO --",           600, 330, 13, QColor(255, 220, 80));
+    addText("-- OBJETIVO --",           600, 322, 13, QColor(255, 220, 80));
     addText("Anota mas goles que los Looney Tunes en 5 minutos",
-                                        600, 360, 11, QColor(220, 240, 255), false);
+                                        600, 350, 11, QColor(220, 240, 255), false);
     addText("La IA rival aprende de tus jugadas y se vuelve mas dificil!",
-                                        600, 384, 11, QColor(255, 150, 150), false);
+                                        600, 372, 11, QColor(255, 150, 150), false);
     addText("3 vs 3  |  Arqueros controlados por IA  |  Vista cenital",
-                                        600, 408, 10, QColor(180, 255, 180), false);
-    addText("Equipos: lado DERECHO = Humanos  |  lado IZQUIERDO = Looney Tunes",
-                                        600, 432, 10, QColor(180, 255, 180), false);
+                                        600, 394, 10, QColor(180, 255, 180), false);
+    addText("Equipos: lado IZQUIERDO = Humanos  |  lado DERECHO = Looney Tunes",
+                                        600, 416, 10, QColor(180, 255, 180), false);
+
+    // -- Selector de dificultad (teclas 1 / 2 / 3) --
+    const char* names[3] = { "1) FACIL", "2) NORMAL", "3) DIFICIL" };
+    float bx[3] = { 320.f, 520.f, 720.f };
+    for (int i = 0; i < 3; ++i) {
+        bool sel = (selectedDifficulty_ == i);
+        startScene->addRect(bx[i], 452, 160, 34,
+            QPen(sel ? QColor(255, 220, 80, 230) : QColor(100, 150, 255, 110),
+                 sel ? 3 : 1),
+            QBrush(sel ? QColor(60, 60, 15, 230) : QColor(10, 20, 60, 180)));
+        addText(names[i], bx[i] + 80.f, 458, 11,
+                sel ? QColor(255, 230, 120) : QColor(200, 220, 255), sel);
+    }
+    addText("Elige dificultad con [1] [2] [3]", 600, 498, 10,
+            QColor(255, 220, 80), false);
 
     // Boton iniciar
     startScene->addRect(400, 540, 400, 60,
@@ -136,7 +151,7 @@ void GameWindow::startGame() {
     if (old && old != scene_) delete old;
 
     try {
-        scene_ = new Level2Scene(this);
+        scene_ = new Level2Scene(this, selectedDifficulty_);
         view_->setScene(scene_);
         view_->fitInView(scene_->sceneRect(), Qt::KeepAspectRatio);
         view_->setFocus();
@@ -162,8 +177,8 @@ void GameWindow::showEndScreen(bool humanWon, int hGoals, int eGoals) {
     endScene->addRect(0, 0, 1200, 750, Qt::NoPen,
         QBrush(humanWon ? QColor(5, 30, 5) : QColor(30, 5, 5)));
 
-    QString resultText = humanWon ? "VICTORIA!" :
-                         (hGoals == eGoals ? "EMPATE!" : "DERROTA...");
+    QString resultText = humanWon ? "¡VICTORIA!" :
+                         (hGoals == eGoals ? "¡EMPATE!" : "¡DERROTA!");
     QColor  resultCol  = humanWon ? QColor(255, 220, 0) :
                          (hGoals == eGoals ? Qt::cyan : QColor(255, 80, 80));
 
@@ -176,23 +191,30 @@ void GameWindow::showEndScreen(bool humanWon, int hGoals, int eGoals) {
         return t;
     };
 
-    addText(resultText, 600, 140, 40, resultCol);
+    addText("FIN DEL PARTIDO", 600, 70, 18, QColor(200, 220, 255));
+    addText(resultText, 600, 130, 42, resultCol);
     addText(QString("HUMANOS  %1  -  %2  LOONEY TUNES")
-            .arg(hGoals).arg(eGoals), 600, 240, 22, Qt::white);
+            .arg(hGoals).arg(eGoals), 600, 235, 22, Qt::white);
 
     QString msg = humanWon
         ? "Gidsel y compania demostraron que los humanos\npueden superar a los Looney Tunes!"
-        : "Los Looney Tunes aprendieron de tus jugadas\ny te derrotaron con fisica caricaturesca!";
-    addText(msg, 600, 320, 13, QColor(200, 230, 255), false);
+        : (hGoals == eGoals
+            ? "Un duelo parejo en el Estadio Intergalactico.\n¿Quieres la revancha?"
+            : "Los Looney Tunes aprendieron de tus jugadas\ny te derrotaron con fisica caricaturesca!");
+    addText(msg, 600, 315, 13, QColor(200, 230, 255), false);
 
-    // Botones
-    endScene->addRect(350, 490, 200, 55,
-        QPen(QColor(100, 255, 100, 200), 2), QBrush(QColor(15, 70, 15, 220)));
-    addText("[R] REINICIAR", 450, 507, 12, QColor(100, 255, 100));
+    addText("¿Que quieres hacer?", 600, 430, 14, QColor(255, 220, 80));
 
-    endScene->addRect(650, 490, 200, 55,
-        QPen(QColor(255, 100, 100, 200), 2), QBrush(QColor(70, 15, 15, 220)));
-    addText("[ESC] SALIR", 750, 507, 12, QColor(255, 100, 100));
+    // Botones de decision: seguir jugando o salir
+    endScene->addRect(300, 480, 270, 60,
+        QPen(QColor(100, 255, 100, 220), 2), QBrush(QColor(15, 70, 15, 230)));
+    addText("SEGUIR JUGANDO", 435, 492, 14, QColor(120, 255, 120));
+    addText("[ENTER] o [R]", 435, 516, 10, QColor(180, 255, 180), false);
+
+    endScene->addRect(630, 480, 270, 60,
+        QPen(QColor(255, 100, 100, 220), 2), QBrush(QColor(70, 15, 15, 230)));
+    addText("SALIR DEL JUEGO", 765, 492, 14, QColor(255, 120, 120));
+    addText("[ESC] o [Q]", 765, 516, 10, QColor(255, 180, 180), false);
 
     QGraphicsScene* old = view_->scene();
     view_->setScene(endScene);
@@ -214,7 +236,10 @@ void GameWindow::onLevelCompleted(bool humanWon) {
         h = scene_->getGameManager()->getHumanGoals();
         e = scene_->getGameManager()->getEnemyGoals();
     }
-    showEndScreen(humanWon, h, e);
+    // Diferir: no destruir la escena mientras su propio slot sigue en la pila
+    QTimer::singleShot(0, this, [this, humanWon, h, e]() {
+        showEndScreen(humanWon, h, e);
+    });
 }
 
 void GameWindow::keyPressEvent(QKeyEvent* ev) {
@@ -222,6 +247,9 @@ void GameWindow::keyPressEvent(QKeyEvent* ev) {
 
     // Pantalla de inicio
     if (inStartScreen_) {
+        if (key == Qt::Key_1) { selectedDifficulty_ = 0; showStartScreen(); return; }
+        if (key == Qt::Key_2) { selectedDifficulty_ = 1; showStartScreen(); return; }
+        if (key == Qt::Key_3) { selectedDifficulty_ = 2; showStartScreen(); return; }
         if (key == Qt::Key_Return || key == Qt::Key_Enter ||
             key == Qt::Key_Space) {
             startGame();
@@ -229,14 +257,15 @@ void GameWindow::keyPressEvent(QKeyEvent* ev) {
         return;
     }
 
-    // Pantalla de fin
+    // Pantalla de fin: decidir si seguir jugando o salir
     if (inEndScreen_) {
-        if (key == Qt::Key_R) {
-            inEndScreen_ = false;
+        if (key == Qt::Key_R || key == Qt::Key_Return ||
+            key == Qt::Key_Enter || key == Qt::Key_Space) {
+            inEndScreen_   = false;
             inStartScreen_ = true;
-            showStartScreen();
-        } else if (key == Qt::Key_Escape) {
-            close();
+            showStartScreen();          // volver al menú para re-elegir dificultad y jugar
+        } else if (key == Qt::Key_Escape || key == Qt::Key_Q) {
+            close();                     // salir del juego
         }
         return;
     }
