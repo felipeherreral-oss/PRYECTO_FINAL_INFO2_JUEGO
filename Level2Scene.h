@@ -59,6 +59,11 @@ public:
     static constexpr float ENEMY_GOAL_X  = PLAY_RIGHT;      // arco rival  (derecha)
     static constexpr float GK_INSET      = 26.f;            // qué tan adentro está el arquero
 
+    // ── Área de arco (zona AZUL, semicírculo) ──────────────────────────────────
+    // Ningún jugador de campo (humano o Looney) puede entrar; sólo los arqueros.
+    // Radio medido sobre la imagen de cancha respecto al punto de gol.
+    static constexpr float AREA_RADIUS = 134.f;
+
     explicit Level2Scene(QObject* parent = nullptr, int difficultyPreset = 1);
     ~Level2Scene() override = default;
 
@@ -117,6 +122,7 @@ private:
     void checkGoals();
     void checkBallPickup();
     void checkOutOfBounds();
+    void enforceGoalAreas();   // empuja a los jugadores de campo fuera de la zona azul
     void updateAI(float dt);
     void runEnemyOffense(EnemyPlayer* holder, float dt);
     void runEnemyLooseChase(float dt);

@@ -28,6 +28,7 @@ private:
     Level2Scene*   scene_   = nullptr;
     bool inStartScreen_     = false;
     bool inEndScreen_       = false;
+    int  selectedDifficulty_ = 1;   // 0 = Fácil, 1 = Normal, 2 = Difícil
 
     void showEndScreen(bool humanWon, int hGoals, int eGoals);
 };
