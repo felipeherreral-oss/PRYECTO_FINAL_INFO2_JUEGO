@@ -16,15 +16,17 @@ Enemigo::Enemigo(double xCentro, double yPos, double amp, double velAngular, Tip
     frameActual = 1;
     contadorFrames = 0;
 
-    // Cargar las imágenes del tornado escaladas
-    pixTaz1 = QPixmap(":/imagenes/giro_1.png").scaled(60, 60);
-    pixTaz2 = QPixmap(":/imagenes/giro_2.png").scaled(60, 60);
+    // Cargar las imágenes en la memoria (Ajusta los tamaños 60x60 o 65x65 a tu gusto)
+    pixTaz1 = QPixmap(":/imagenes/giro_1.png").scaled(80, 80);
+    pixTaz2 = QPixmap(":/imagenes/giro_2.png").scaled(80, 80);
+    pixBossDer = QPixmap(":/imagenes/boss_H_der.png").scaled(80, 80);
+    pixBossIzq = QPixmap(":/imagenes/boss_H_izq.png").scaled(80, 80);
 
     // ====================================================
     // === ASIGNACIÓN DE SPRITES SEGÚN TIPO DE ENEMIGO ===
     // ====================================================
     if (esArquero) {
-        // 1. EL ARQUERO
+        // 1. EL ARQUERO (Tazmania)
         setRect(0, 0, 80, 80);
         setBrush(QBrush(QPixmap(":/imagenes/tazmania_arquero.png").scaled(80, 80)));
         setPen(Qt::NoPen);
@@ -36,19 +38,25 @@ Enemigo::Enemigo(double xCentro, double yPos, double amp, double velAngular, Tip
         setPen(Qt::NoPen);
 
     } else if (tipo == TRAYECTORIA_L) {
-        // 3. PATO LUCAS (Movimiento en L)
-        setRect(0, 0, 80, 80); // Tamaño para Lucas
+        // 3. PATO LUCAS EN L
+        setRect(0, 0, 80, 80);
         setBrush(QBrush(QPixmap(":/imagenes/lucas_izq.png").scaled(80, 80)));
         setPen(Qt::NoPen);
 
-    } else if (tipo == HORIZONTAL_MAS || tipo == VERTICAL_MAS) {
-        // 4. BOSS (Movimientos Horizontales y Verticales Rectos)
-        setRect(0, 0, 80, 80); // Tamaño para el Boss (un poco más grande, ajusta si quieres)
-        setBrush(QBrush(QPixmap(":/imagenes/boss_H.png").scaled(80, 80)));
+    } else if (tipo == VERTICAL_MAS) {
+        // 4. LUCAS VERTICAL
+        setRect(0, 0, 80, 80);
+        setBrush(QBrush(QPixmap(":/imagenes/lucas_v.png").scaled(80, 80)));
+        setPen(Qt::NoPen);
+
+    } else if (tipo == HORIZONTAL_MAS) {
+        // 5. BOSS HORIZONTAL (Inicia mirando a la derecha por defecto)
+        setRect(0, 0, 80, 80);
+        setBrush(QBrush(pixBossDer));
         setPen(Qt::NoPen);
 
     } else {
-        // 5. POR DEFECTO (Si algún día creas otro tipo de movimiento)
+        // 6. POR DEFECTO
         setRect(0, 0, 40, 40);
         setBrush(QBrush(Qt::red));
     }
@@ -114,5 +122,18 @@ void Enemigo::actualizarFisica(double dt) {
     }
     }
 
+    // === NUEVO: CAMBIO DE SPRITE POR DIRECCIÓN PARA EL BOSS HORIZONTAL ===
+    if (tipo == HORIZONTAL_MAS) {
+        // Comparamos el nuevoX con la posición actual (pos().x())
+        if (nuevoX > pos().x()) {
+            // Se está moviendo hacia la derecha
+            setBrush(QBrush(pixBossDer));
+        } else if (nuevoX < pos().x()) {
+            // Se está moviendo hacia la izquierda
+            setBrush(QBrush(pixBossIzq));
+        }
+    }
+
+    // Aplicamos la nueva posición en la interfaz de Qt
     setPos(nuevoX, nuevoY);
 }
