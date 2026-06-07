@@ -42,10 +42,10 @@ void GoalkeeperAI::update(float dt) {
     setPos(position.x, position.y);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+//
 // IA: el arquero se mueve VERTICALMENTE. Sigue la Y del balón; si viene un tiro
 // hacia su arco, predice el punto de impacto. Añade un pequeño sesgo aprendido.
-// ─────────────────────────────────────────────────────────────────────────────
+//
 void GoalkeeperAI::updateAI(Vec2D ballPos, Vec2D ballVel,
                               Vec2D shooterPos, bool isShooting, float dt) {
     if (!active) return;
@@ -53,7 +53,7 @@ void GoalkeeperAI::updateAI(Vec2D ballPos, Vec2D ballVel,
     // PERCEPCIÓN
     agent_->perceive(ballPos, ballVel, shooterPos, isShooting);
 
-    // RAZONAMIENTO ───────────────────────────────────────────────────────────
+    // RAZONAMIENTO
     // ¿El balón viene hacia mi arco? (humano = izquierda, rival = derecha)
     bool comingToMe = (team_ == Team::HUMAN) ? (ballVel.x < -5.f)
                                              : (ballVel.x >  5.f);
@@ -124,7 +124,7 @@ void GoalkeeperAI::onCollision(Collidable* other, Vec2D normal) {
     currentAnim_ = SpriteManager::AnimState::SAVE;
 }
 
-// ── PAINT ─────────────────────────────────────────────────────────────────────
+//  PAINT
 void GoalkeeperAI::paint(QPainter* p, const QStyleOptionGraphicsItem*, QWidget*) {
     p->setRenderHint(QPainter::Antialiasing);
     p->setRenderHint(QPainter::SmoothPixmapTransform);

@@ -79,7 +79,7 @@ void EnemyPlayer::updateAI(Vec2D ballPos, Vec2D ballVel,
     }
 }
 
-// ─── TAZMANIA ─────────────────────────────────────────────────────────────────
+//  TAZMANIA
 void EnemyPlayer::updateTazmania(Vec2D ballPos, Vec2D humanPos, float dt) {
     if (isSpinning_ || isDizzy_) return;
 
@@ -125,7 +125,7 @@ void EnemyPlayer::updateTazmania(Vec2D ballPos, Vec2D humanPos, float dt) {
     }
 }
 
-// ─── BUGS / DAFFY ─────────────────────────────────────────────────────────────
+//  BUGS / DAFFY
 void EnemyPlayer::updateFieldPlayer(Vec2D ballPos, Vec2D ballVel,
                                      Vec2D humanPos, bool isShooting,
                                      Vec2D goalCenter, float dt)
@@ -146,7 +146,7 @@ void EnemyPlayer::updateFieldPlayer(Vec2D ballPos, Vec2D ballVel,
                                          : SpriteManager::AnimState::IDLE);
 }
 
-// ─── Movimiento ofensivo / persecución controlado por la escena ───────────────
+//  Movimiento ofensivo / persecución controlado por la escena
 void EnemyPlayer::steerTo(Vec2D target, float speed, float dt) {
     if (!active || isDizzy_) return;
 
@@ -201,7 +201,7 @@ Ball* EnemyPlayer::dropBall() {
     return b;
 }
 
-// ── PAINT ─────────────────────────────────────────────────────────────────────
+//  PAINT
 void EnemyPlayer::paint(QPainter* p, const QStyleOptionGraphicsItem*, QWidget*) {
     p->setRenderHint(QPainter::Antialiasing);
     p->setRenderHint(QPainter::SmoothPixmapTransform);

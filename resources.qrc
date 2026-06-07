@@ -25,5 +25,7 @@
         <file>sounds/giro_tasmania.wav</file>
         <file>sounds/tasmania_despues_del_giro.wav</file>
         <file>sounds/choque_contra_tasmania.wav</file>
+        <file>sounds/looney_tunes_portada.wav</file>
+        <file>sounds/looney_tunes_primer_level_fondo.wav</file>
     </qresource>
 </RCC>

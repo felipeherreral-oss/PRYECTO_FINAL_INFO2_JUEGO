@@ -16,9 +16,7 @@ AIAgent::AIAgent(AgentType type, float fieldW, float fieldH)
     reactionDelay_   = MAX_DELAY_EASY;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // PERCEPCIÓN
-// ─────────────────────────────────────────────────────────────────────────────
 void AIAgent::perceive(Vec2D ballPos, Vec2D ballVel,
                        Vec2D playerPos, bool isShooting) {
     perceivedBallPos_    = ballPos;
@@ -27,9 +25,7 @@ void AIAgent::perceive(Vec2D ballPos, Vec2D ballVel,
     playerIsShooting_    = isShooting;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // RAZONAMIENTO
-// ─────────────────────────────────────────────────────────────────────────────
 Vec2D AIAgent::reason(Vec2D myPos, Vec2D goalCenter, float dt) {
     // Timer de reacción: simula demora humana proporcional a la dificultad
     if (reactionTimer_ > 0.f) {
@@ -41,7 +37,7 @@ Vec2D AIAgent::reason(Vec2D myPos, Vec2D goalCenter, float dt) {
     Vec2D target;
 
     if (type_ == AgentType::GOALKEEPER) {
-        // ── ARQUERO ──────────────────────────────────────────────────────────
+        //  ARQUERO
         if (playerIsShooting_) {
             // El balón ya viene: predecir zona de impacto
             float impactX = predictBallImpactX(goalCenter);
@@ -73,7 +69,7 @@ Vec2D AIAgent::reason(Vec2D myPos, Vec2D goalCenter, float dt) {
         reactionTimer_ = reactionDelay_ * (1.f - difficultyLevel_ * 0.8f);
 
     } else {
-        // ── DEFENSA DE CAMPO ─────────────────────────────────────────────────
+        //  DEFENSA DE CAMPO
         // Moverse hacia el balón o interceptar trayectoria
         Vec2D toBall = perceivedBallPos_ - myPos;
         float distToBall = toBall.length();
@@ -99,9 +95,8 @@ Vec2D AIAgent::reason(Vec2D myPos, Vec2D goalCenter, float dt) {
     return dir.normalized() * currentMaxSpeed_;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+
 // ACCIÓN
-// ─────────────────────────────────────────────────────────────────────────────
 Vec2D AIAgent::act(Vec2D desiredVelocity) {
     float speed = desiredVelocity.length();
     if (speed > currentMaxSpeed_) {
@@ -110,9 +105,7 @@ Vec2D AIAgent::act(Vec2D desiredVelocity) {
     return desiredVelocity;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // APRENDIZAJE
-// ─────────────────────────────────────────────────────────────────────────────
 void AIAgent::learnFromGoal(float ballImpactX, float goalLeft, float goalRight) {
     GoalZone z = classifyZone(ballImpactX, goalLeft, goalRight);
     int idx = static_cast<int>(z);
@@ -133,9 +126,7 @@ void AIAgent::learnFromSave(GoalZone zone) {
     if (idx < 3) savesByZone_[idx]++;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // DIFICULTAD DINÁMICA
-// ─────────────────────────────────────────────────────────────────────────────
 void AIAgent::updateDifficulty(float gameTimeSeconds) {
     // Curva suave: la dificultad crece desde el nivel base del perfil hasta un
     // máximo cercano a 0.9 a lo largo de rampDuration_ segundos.
@@ -156,9 +147,7 @@ void AIAgent::updateDifficulty(float gameTimeSeconds) {
     reactionDelay_   = MAX_DELAY_EASY - (MAX_DELAY_EASY - MIN_DELAY_HARD) * difficultyLevel_;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // PERFIL DE DIFICULTAD (selección del usuario) + SESGO APRENDIDO
-// ─────────────────────────────────────────────────────────────────────────────
 void AIAgent::setProfile(float baseLevel, float rampSeconds) {
     baseLevel_       = std::max(0.f, std::min(1.f, baseLevel));
     rampDuration_    = std::max(30.f, rampSeconds);
@@ -175,9 +164,7 @@ float AIAgent::learnedZoneBias() const {
     return float(r - l) / float(tot);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // PRIVADOS
-// ─────────────────────────────────────────────────────────────────────────────
 AIAgent::GoalZone AIAgent::classifyZone(float x, float goalLeft, float goalRight) const {
     float third = (goalRight - goalLeft) / 3.f;
     if (x < goalLeft + third)          return GoalZone::LEFT;

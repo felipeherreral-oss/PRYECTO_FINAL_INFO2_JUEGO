@@ -10,9 +10,8 @@
 #include <cmath>
 #include <algorithm>
 
-// ─────────────────────────────────────────────────────────────────────────────
+
 // CONSTRUCTOR
-// ─────────────────────────────────────────────────────────────────────────────
 Level2Scene::Level2Scene(QObject* parent, int difficultyPreset)
     : QGraphicsScene(parent)
     , manager_(std::make_unique<GameManager>(300))
@@ -50,9 +49,8 @@ Level2Scene::Level2Scene(QObject* parent, int difficultyPreset)
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+
 // SETUP DEL CAMPO
-// ─────────────────────────────────────────────────────────────────────────────
 void Level2Scene::setupField() {
     drawBackground();
 }
@@ -84,16 +82,15 @@ void Level2Scene::drawBackground() {
     lblEnemy->setZValue(-7);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+
 // SETUP DE JUGADORES
-// ─────────────────────────────────────────────────────────────────────────────
 void Level2Scene::setupPlayers() {
     const float bMinX = PLAY_LEFT  + 18.f;
     const float bMaxX = PLAY_RIGHT - 18.f;
     const float bMinY = PLAY_TOP    + 18.f;
     const float bMaxY = PLAY_BOTTOM - 18.f;
 
-    // ─── Equipo humano (lado izquierdo, atacan a la DERECHA) ──────────────────
+    //  Equipo humano (lado izquierdo, atacan a la DERECHA)
     auto* p1 = new HumanPlayer({PLAY_CX - 150.f, PLAY_CY - 70.f},
                                HumanPlayer::PlayerNumber::ONE);
     p1->setBounds(bMinX, bMaxX, bMinY, bMaxY);
@@ -169,9 +166,8 @@ void Level2Scene::setupHUD() {
     addItem(hud_);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+
 // PERFIL DE DIFICULTAD (Fácil / Normal / Difícil)
-// ─────────────────────────────────────────────────────────────────────────────
 void Level2Scene::applyDifficultyPreset() {
     float base, ramp, aggro;
     switch (difficultyPreset_) {
@@ -210,9 +206,8 @@ void Level2Scene::connectSignals() {
             });
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+
 // GAME LOOP
-// ─────────────────────────────────────────────────────────────────────────────
 void Level2Scene::gameLoop() {
     qint64 now = QDateTime::currentMSecsSinceEpoch();
     float dt   = std::min(float(now - lastTime_) / 1000.f, 0.05f);
@@ -262,9 +257,8 @@ void Level2Scene::updateGame(float dt) {
     hud_->setDifficultyLevel(enemyGoalkeeper_->getDifficulty());
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+
 // IA
-// ─────────────────────────────────────────────────────────────────────────────
 void Level2Scene::updateAI(float dt) {
     Vec2D ballPos = ball_->getPosition();
     Vec2D ballVel = ball_->getVelocity();
@@ -361,7 +355,7 @@ void Level2Scene::runEnemyOffense(EnemyPlayer* holder, float dt) {
     }
 }
 
-// ── Balón suelto: el rival más cercano lo persigue para recuperar posesión ────
+//  Balón suelto: el rival más cercano lo persigue para recuperar posesión
 void Level2Scene::runEnemyLooseChase(float dt) {
     Vec2D ballPos = ball_->getPosition();
     EnemyPlayer* chaser = nearestEnemyTo(ballPos);
@@ -380,7 +374,7 @@ void Level2Scene::runEnemyLooseChase(float dt) {
     }
 }
 
-// ── Apoyo de los humanos sin balón ────────────────────────────────────────────
+//  Apoyo de los humanos sin balón
 void Level2Scene::updateHumanSupport() {
     HumanPlayer* holder = humanHolder();
 
@@ -425,11 +419,9 @@ void Level2Scene::updateHumanSupport() {
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // COLISIONES
-// ─────────────────────────────────────────────────────────────────────────────
 void Level2Scene::checkCollisions() {
-    // ─── Humanos vs Tazmania (colisión elástica) / vs Bugs (empuje suave) ─────
+    //  Humanos vs Tazmania (colisión elástica) / vs Bugs (empuje suave)
     for (auto* hp : humanPlayers_) {
         for (auto* ep : enemyPlayers_) {
             if (!hp->overlaps(*ep)) continue;
@@ -437,7 +429,7 @@ void Level2Scene::checkCollisions() {
 
             if (ep->getType() == EnemyPlayer::EnemyType::TAZMANIA) {
                 if (ep->isSpinning()) {
-                    // ── Rebote contra el TORNADO de Tazmania ─────────────────
+                    //  Rebote contra el TORNADO de Tazmania
                     // n̂ apunta desde Tazmania hacia el humano (dirección de rebote).
                     Vec2D bounceN = (hp->getPosition() - ep->getPosition()).normalized();
                     const float spinKick = 320.f;   // impulso de expulsión del giro
@@ -475,7 +467,7 @@ void Level2Scene::checkCollisions() {
         }
     }
 
-    // ─── Balón lanzado vs arqueros (atajada) ──────────────────────────────────
+    //  Balón lanzado vs arqueros (atajada)
     if (ball_->getState() == Ball::State::SHOT) {
         if (ballShotByHuman_ && ball_->overlaps(*enemyGoalkeeper_)) {
             Vec2D n = (ball_->getPosition() - enemyGoalkeeper_->getPosition()).normalized();
@@ -491,7 +483,7 @@ void Level2Scene::checkCollisions() {
         }
     }
 
-    // ─── Tiro humano bloqueado por un defensa rival ───────────────────────────
+    //  Tiro humano bloqueado por un defensa rival
     if (ball_->getState() == Ball::State::SHOT && ballShotByHuman_) {
         for (auto* ep : enemyPlayers_) {
             if (ep->overlaps(*ball_)) {
@@ -528,9 +520,7 @@ void Level2Scene::resolveElasticCollision(Collidable* a, Collidable* b) {
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // POSESIÓN DEL BALÓN
-// ─────────────────────────────────────────────────────────────────────────────
 void Level2Scene::checkBallPickup() {
     Ball::State st = ball_->getState();
     if (st == Ball::State::HELD) return;
@@ -564,9 +554,7 @@ void Level2Scene::checkBallPickup() {
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // DETECCIÓN DE GOLES
-// ─────────────────────────────────────────────────────────────────────────────
 void Level2Scene::checkGoals() {
     Ball::State st = ball_->getState();
     if (st != Ball::State::SHOT && st != Ball::State::FREE) return;
@@ -596,9 +584,7 @@ void Level2Scene::checkGoals() {
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // FUERA DE LÍMITES → BALÓN AL CENTRO
-// ─────────────────────────────────────────────────────────────────────────────
 void Level2Scene::checkOutOfBounds() {
     if (ball_->isOwned()) return;  // en posesión: no aplica
 
@@ -619,9 +605,7 @@ void Level2Scene::checkOutOfBounds() {
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // ZONA AZUL (área de arco): empuja a los jugadores de campo fuera del semicírculo
-// ─────────────────────────────────────────────────────────────────────────────
 void Level2Scene::enforceGoalAreas() {
     const Vec2D leftGoal  = {HUMAN_GOAL_X, GOAL_Y_CENTER};
     const Vec2D rightGoal = {ENEMY_GOAL_X, GOAL_Y_CENTER};
@@ -655,9 +639,7 @@ bool Level2Scene::ballInsideGoalMouth() const {
     return (y > GOAL_TOP && y < GOAL_BOT);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // SLOTS
-// ─────────────────────────────────────────────────────────────────────────────
 void Level2Scene::onGoalByHuman() { doKickoff(false); }  // saca el rival
 void Level2Scene::onGoalByEnemy() { doKickoff(true);  }  // saca el humano
 
@@ -674,9 +656,7 @@ void Level2Scene::onKickoff() {
     // Las posiciones ya se reubicaron en doKickoff(); nada más que hacer aquí.
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // KICKOFF Y RESET
-// ─────────────────────────────────────────────────────────────────────────────
 void Level2Scene::doKickoff(bool humanKickoff) {
     resetPositions();
     if (humanKickoff) {
@@ -714,9 +694,7 @@ void Level2Scene::resetPositions() {
     enemyGoalkeeper_->setVelocity(Vec2D::zero());
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // INPUT
-// ─────────────────────────────────────────────────────────────────────────────
 void Level2Scene::keyPressEvent(QKeyEvent* e) {
     if (!manager_->isPlaying()) return;
     int key = e->key();
@@ -766,9 +744,7 @@ void Level2Scene::switchActivePlayer() {
     humanPlayers_[activePlayerIdx_]->setActiveControl(true);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // UTILIDADES
-// ─────────────────────────────────────────────────────────────────────────────
 HumanPlayer* Level2Scene::getActivePlayer() {
     if (humanPlayers_.empty()) return nullptr;
     return humanPlayers_[activePlayerIdx_];

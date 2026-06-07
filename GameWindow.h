@@ -12,6 +12,10 @@ public:
     explicit GameWindow(QWidget* parent = nullptr);
     ~GameWindow() override = default;
 
+signals:
+    void pedirMenuPrincipal();   // "seguir jugando" tras el partido → menú principal
+    void pedirSalir();           // "salir del juego"
+
 protected:
     void keyPressEvent(QKeyEvent* e)   override;
     void keyReleaseEvent(QKeyEvent* e) override;

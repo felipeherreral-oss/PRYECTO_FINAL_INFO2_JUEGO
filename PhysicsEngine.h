@@ -68,6 +68,22 @@ public:
     /** Refleja vel respecto a la normal n̂ (rebote en pared). */
     static Vec2D reflect(Vec2D vel, Vec2D normal);
 
+    // ─────────────────────────────────────────────────────────────────────────
+    // 4. REBOTE CONTRA UN CUERPO GIRATORIO (tornado de Tazmania)
+    //
+    //    El tornado se modela como un obstáculo de masa ~infinita y coeficiente
+    //    de restitución e = 1 (choque perfectamente elástico). La velocidad del
+    //    cuerpo entrante se refleja respecto a la normal de contacto y se le suma
+    //    un impulso radial de expulsión proporcional a la energía del giro:
+    //
+    //        v_refl = v - 2 (v · n̂) n̂          (reflexión especular, e = 1)
+    //        v_out  = v_refl + n̂ · vKick         (expulsión del tornado)
+    //
+    //    n̂ apunta desde el centro del tornado hacia el cuerpo entrante, de modo
+    //    que el resultado siempre empuja al cuerpo en dirección opuesta.
+    // ─────────────────────────────────────────────────────────────────────────
+    static Vec2D bounceOffSpinner(Vec2D vIn, Vec2D normal, float spinKick);
+
     /** Clamp de posición dentro del campo (limites en px). */
     static Vec2D clampToField(Vec2D pos, float minX, float maxX,
                                float minY, float maxY);

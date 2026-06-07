@@ -2,7 +2,6 @@
 #include <QImage>
 #include <QTransform>
 
-// ─────────────────────────────────────────────────────────────────────────────
 QString SpriteManager::makeKey(const QString& ch, AnimState st) {
     return ch + "_" + QString::number(static_cast<int>(st));
 }
@@ -26,7 +25,7 @@ void SpriteManager::addFrames(const QString& key, const QPixmap& sheet,
     }
 }
 
-// ── Eliminar fondo gris ───────────────────────────────────────────────────────
+//  Eliminar fondo gris
 QPixmap SpriteManager::removeBackground(const QPixmap& src, QColor bgColor, int tol) {
     QImage img = src.toImage().convertToFormat(QImage::Format_ARGB32);
     int br = bgColor.red(), bg = bgColor.green(), bb = bgColor.blue();
@@ -42,9 +41,7 @@ QPixmap SpriteManager::removeBackground(const QPixmap& src, QColor bgColor, int 
     return QPixmap::fromImage(img);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // LOAD ALL
-// ─────────────────────────────────────────────────────────────────────────────
 void SpriteManager::loadAll() {
     if (loaded_) return;
 
@@ -70,22 +67,19 @@ void SpriteManager::loadAll() {
         frames_[makeKey(character, st)].push_back(px);
     };
 
-    // ── Cancha ────────────────────────────────────────────────────────────────
+    //  Cancha
     {
         QPixmap f(":/images/cancha_Looney_Tunes.png");
         if (!f.isNull()) fieldPixmap_ = f;
     }
 
-    // ── Balón ─────────────────────────────────────────────────────────────────
+    //  Balón
     if (tryLoad("balon_sheet", ":/images/Balon.png")) {
         ballPixmap_ = removeBackground(sheets_["balon_sheet"].copy(7, 0, 114, 115),
                                        QColor(200, 200, 200), 40);
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // J1 — sprite_jugador1_corriendo (pelo negro). Frames ya recortados.
-    //   Mira a la DERECHA por defecto (los humanos atacan hacia la derecha).
-    // ─────────────────────────────────────────────────────────────────────────
+    // J1 — sprite_jugador1_corriendo
     {
         addFile("j1", AnimState::RUN,    ":/images/j1_run0.png");
         addFile("j1", AnimState::RUN,    ":/images/j1_run1.png");
@@ -96,10 +90,7 @@ void SpriteManager::loadAll() {
         addFile("j1", AnimState::DEFEND, ":/images/j1_run1.png");
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // J2 — sprite_jugador2_corriendo (pelo rubio). Frames ya recortados.
-    //   Mira a la DERECHA por defecto.
-    // ─────────────────────────────────────────────────────────────────────────
+    // J2 — sprite_jugador2_corriendo
     {
         addFile("j2", AnimState::RUN,    ":/images/j2_run0.png");
         addFile("j2", AnimState::RUN,    ":/images/j2_run1.png");
@@ -110,10 +101,7 @@ void SpriteManager::loadAll() {
         addFile("j2", AnimState::DEFEND, ":/images/j2_run1.png");
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // ARQUERO HUMANO — Arquero_2_sprites (negro). Frames ya recortados.
-    //   F0 = listo/parado, F1 = estirada/atajada. Mira a la DERECHA.
-    // ─────────────────────────────────────────────────────────────────────────
+    // ARQUERO HUMANO
     {
         addFile("gk_human", AnimState::IDLE,  ":/images/gkh_ready.png");
         addFile("gk_human", AnimState::SAVE,  ":/images/gkh_save.png");
@@ -123,12 +111,7 @@ void SpriteManager::loadAll() {
         addFile("gk_human", AnimState::SHOOT, ":/images/gkh_ready.png");
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // TAZMANIA SIN BALÓN — 2 frames de carrera/idle mirando izquierda
-    //   tasmania_izquierda_sin_balon.png (1152×918)
-    //   Frame 0: QRect(28,153,606,765)
-    //   Frame 1: QRect(666,153,486,765)
-    // ─────────────────────────────────────────────────────────────────────────
+    // TAZMANIA SIN BALÓN
     {
         if (!tryLoad("taz_left_sheet", ":/images/tasmania_izquierda_sin_balon.png")) { loaded_ = true; return; }
         QPixmap& sh = sheets_["taz_left_sheet"];
@@ -145,12 +128,7 @@ void SpriteManager::loadAll() {
         });
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // TAZMANIA CON BALÓN — 2 frames mirando izquierda
-    //   tasmania_izquierda_con_balon.png (1152×918)
-    //   Frame 0: QRect(41,159,592,728)
-    //   Frame 1: QRect(680,159,439,728)
-    // ─────────────────────────────────────────────────────────────────────────
+    // TAZMANIA CON BALÓN
     {
         if (!tryLoad("taz_ball_sheet", ":/images/tasmania_izquierda_con_balon.png")) { loaded_ = true; return; }
         QPixmap& sh = sheets_["taz_ball_sheet"];
@@ -160,10 +138,7 @@ void SpriteManager::loadAll() {
         });
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // TAZMANIA GIRANDO (tornado) — Tasmania_Girando.png (1408×768)
-    //   Se conserva del set anterior
-    // ─────────────────────────────────────────────────────────────────────────
+    // TAZMANIA GIRANDO (tornado)
     {
         if (!tryLoad("taz_spin_sheet", ":/images/Tasmania_Girando.png")) { loaded_ = true; return; }
         QPixmap& sh = sheets_["taz_spin_sheet"];
@@ -173,10 +148,7 @@ void SpriteManager::loadAll() {
         });
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // TAZMANIA MAREADO — Tasmania_Mareado.png (1408×768)
-    //   Se conserva del set anterior
-    // ─────────────────────────────────────────────────────────────────────────
+    // TAZMANIA MAREADO
     {
         if (!tryLoad("taz_dizzy_sheet", ":/images/Tasmania_Mareado.png")) { loaded_ = true; return; }
         QPixmap& sh = sheets_["taz_dizzy_sheet"];
@@ -186,12 +158,7 @@ void SpriteManager::loadAll() {
         });
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // BUGS BUNNY SIN BALÓN — Bugs_Bunny_lado_izquierdo_sin_balon.png (1152×918)
-    //   Valle en x=677  Y=12-887
-    //   Frame 0: QRect(0,12,677,875)  — corriendo
-    //   Frame 1: QRect(677,12,475,875) — preparado
-    // ─────────────────────────────────────────────────────────────────────────
+    // BUGS BUNNY SIN BALÓN
     {
         if (!tryLoad("bugs_left_sheet", ":/images/Bugs_Bunny_lado_izquierdo_sin_balon.png")) { loaded_ = true; return; }
         QPixmap& sh = sheets_["bugs_left_sheet"];
@@ -208,12 +175,7 @@ void SpriteManager::loadAll() {
         });
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // BUGS BUNNY CON BALÓN — Bugs_Bunny_lado_izquierdo.png (1152×918)
-    //   Valle en x=677  Y=9-887
-    //   Frame 0: QRect(0,9,677,878)  — driblando
-    //   Frame 1: QRect(677,9,475,878) — sosteniendo balón
-    // ─────────────────────────────────────────────────────────────────────────
+    // BUGS BUNNY CON BALÓN
     {
         if (!tryLoad("bugs_ball_sheet", ":/images/Bugs_Bunny_lado_izquierdo.png")) { loaded_ = true; return; }
         QPixmap& sh = sheets_["bugs_ball_sheet"];
@@ -223,9 +185,7 @@ void SpriteManager::loadAll() {
         });
     }
 
-    // ─────────────────────────────────────────────────────────────────────────
-    // DAFFY DUCK (arquero rival) — Pato_Lucas_Arquero.png (1408×768)
-    // ─────────────────────────────────────────────────────────────────────────
+    // DAFFY DUCK (arquero rival)
     {
         if (!tryLoad("daffy_sheet", ":/images/Pato_Lucas_Arquero.png")) { loaded_ = true; return; }
         QPixmap& sh = sheets_["daffy_sheet"];
@@ -254,9 +214,7 @@ void SpriteManager::loadAll() {
     loaded_ = true;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // GET FRAME
-// ─────────────────────────────────────────────────────────────────────────────
 QPixmap SpriteManager::getFrame(const QString& character, AnimState state,
                                  int frameIdx, QSize size, bool flipH) const {
     if (!loaded_)

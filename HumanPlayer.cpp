@@ -150,7 +150,7 @@ void HumanPlayer::onCollision(Collidable* other, Vec2D normal) {
     (void)other; (void)normal;
 }
 
-// ── PAINT ─────────────────────────────────────────────────────────────────────
+//  PAINT
 void HumanPlayer::paint(QPainter* p, const QStyleOptionGraphicsItem*, QWidget*) {
     p->setRenderHint(QPainter::Antialiasing);
     p->setRenderHint(QPainter::SmoothPixmapTransform);

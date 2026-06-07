@@ -2,9 +2,8 @@
 #include <cmath>
 #include <stdexcept>
 
-// ─────────────────────────────────────────────────────────────────────────────
+
 // 1. MOVIMIENTO CIRCULAR UNIFORME
-// ─────────────────────────────────────────────────────────────────────────────
 Vec2D PhysicsEngine::circularPosition(Vec2D center, float radius,
                                        float omega,  float phi0, float t) {
     if (radius < 0.f)
@@ -27,9 +26,7 @@ Vec2D PhysicsEngine::circularVelocity(float radius, float omega,
     };
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // 2. COLISIÓN ELÁSTICA 2D
-// ─────────────────────────────────────────────────────────────────────────────
 PhysicsEngine::ElasticResult PhysicsEngine::elasticCollision2D(
         Vec2D v1, float m1,
         Vec2D v2, float m2,
@@ -56,9 +53,7 @@ PhysicsEngine::ElasticResult PhysicsEngine::elasticCollision2D(
     return {v1After, v2After};
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // 3. INTEGRACIÓN DE VERLET
-// ─────────────────────────────────────────────────────────────────────────────
 Vec2D PhysicsEngine::verletPosition(Vec2D pos, Vec2D vel, Vec2D accel, float dt) {
     if (dt < 0.f)
         throw PhysicsException("dt no puede ser negativo en integración Verlet.");
@@ -69,9 +64,7 @@ Vec2D PhysicsEngine::verletVelocity(Vec2D vel, Vec2D accel, float dt) {
     return vel + accel * dt;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
 // Utilidades
-// ─────────────────────────────────────────────────────────────────────────────
 Vec2D PhysicsEngine::applyFriction(Vec2D vel, float coeff, float dt) {
     // Reducción exponencial: v' = v · (1 - coeff·dt)
     float factor = 1.f - coeff * dt;

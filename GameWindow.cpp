@@ -48,9 +48,9 @@ GameWindow::GameWindow(QWidget* parent)
     QTimer::singleShot(50, this, &GameWindow::showStartScreen);
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+
 // RESIZE — reajustar la vista cuando cambia el tamaño de la ventana
-// ─────────────────────────────────────────────────────────────────────────────
+
 void GameWindow::resizeEvent(QResizeEvent* e) {
     QMainWindow::resizeEvent(e);
     if (view_ && view_->scene()) {
@@ -58,9 +58,9 @@ void GameWindow::resizeEvent(QResizeEvent* e) {
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+
 // PANTALLA DE INICIO
-// ─────────────────────────────────────────────────────────────────────────────
+
 void GameWindow::showStartScreen() {
     auto* startScene = new QGraphicsScene(0, 0, 1200, 750, this);
 
@@ -125,8 +125,8 @@ void GameWindow::showStartScreen() {
         addText(names[i], bx[i] + 80.f, 458, 11,
                 sel ? QColor(255, 230, 120) : QColor(200, 220, 255), sel);
     }
-  //  addText("Elige dificultad con [1] [2] [3]", 600, 498, 10,
-    //        QColor(255, 220, 80), false);
+    //addText("Elige dificultad con [1] [2] [3]", 600, 498, 10,
+      //      QColor(255, 220, 80), false);
 
     // Boton iniciar
     startScene->addRect(400, 540, 400, 60,
@@ -134,6 +134,8 @@ void GameWindow::showStartScreen() {
         QBrush(QColor(15, 70, 15, 230)));
     addText("PRESIONA ENTER PARA INICIAR",
             600, 558, 11, QColor(100, 255, 100));
+    addText("[ESC] Volver al menu principal", 600, 612, 10,
+            QColor(180, 200, 255), false);
 
     view_->setScene(startScene);
     view_->fitInView(startScene->sceneRect(), Qt::KeepAspectRatio);
@@ -142,9 +144,9 @@ void GameWindow::showStartScreen() {
     inStartScreen_ = true;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+
 // INICIAR JUEGO
-// ─────────────────────────────────────────────────────────────────────────────
+
 void GameWindow::startGame() {
     if (!inStartScreen_) return;
     inStartScreen_ = false;
@@ -173,9 +175,9 @@ void GameWindow::startGame() {
     }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+
 // PANTALLA DE FIN
-// ─────────────────────────────────────────────────────────────────────────────
+
 void GameWindow::showEndScreen(bool humanWon, int hGoals, int eGoals) {
     auto* endScene = new QGraphicsScene(0, 0, 1200, 750, this);
     endScene->addRect(0, 0, 1200, 750, Qt::NoPen,
@@ -204,7 +206,7 @@ void GameWindow::showEndScreen(bool humanWon, int hGoals, int eGoals) {
         ? "Gidsel y compania demostraron que los humanos\npueden superar a los Looney Tunes!"
         : (hGoals == eGoals
             ? "Un duelo parejo en el Estadio Intergalactico.\n¿Quieres la revancha?"
-            : "Los Looney Tunes \nte derrotaron!");
+            : "Los Looney Tunes \n te derrotaron!");
     addText(msg, 600, 315, 13, QColor(200, 230, 255), false);
 
     addText("¿Que quieres hacer?", 600, 430, 14, QColor(255, 220, 80));
@@ -231,9 +233,9 @@ void GameWindow::showEndScreen(bool humanWon, int hGoals, int eGoals) {
     inEndScreen_   = true;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+
 // SLOTS Y EVENTOS
-// ─────────────────────────────────────────────────────────────────────────────
+
 void GameWindow::onLevelCompleted(bool humanWon) {
     int h = 0, e = 0;
     if (scene_) {
@@ -249,7 +251,7 @@ void GameWindow::onLevelCompleted(bool humanWon) {
 void GameWindow::keyPressEvent(QKeyEvent* ev) {
     int key = ev->key();
 
-    // Pantalla de inicio
+    // Pantalla de inicio (menú del Nivel 2)
     if (inStartScreen_) {
         if (key == Qt::Key_1) { selectedDifficulty_ = 0; showStartScreen(); return; }
         if (key == Qt::Key_2) { selectedDifficulty_ = 1; showStartScreen(); return; }
@@ -257,6 +259,8 @@ void GameWindow::keyPressEvent(QKeyEvent* ev) {
         if (key == Qt::Key_Return || key == Qt::Key_Enter ||
             key == Qt::Key_Space) {
             startGame();
+        } else if (key == Qt::Key_Escape) {
+            emit pedirMenuPrincipal();   // volver al menú principal
         }
         return;
     }
@@ -265,11 +269,10 @@ void GameWindow::keyPressEvent(QKeyEvent* ev) {
     if (inEndScreen_) {
         if (key == Qt::Key_R || key == Qt::Key_Return ||
             key == Qt::Key_Enter || key == Qt::Key_Space) {
-            inEndScreen_   = false;
-            inStartScreen_ = true;
-            showStartScreen();          // volver al menú para re-elegir dificultad y jugar
+            inEndScreen_ = false;
+            emit pedirMenuPrincipal();    // seguir jugando → menú principal
         } else if (key == Qt::Key_Escape || key == Qt::Key_Q) {
-            close();                     // salir del juego
+            emit pedirSalir();            // salir del juego
         }
         return;
     }
